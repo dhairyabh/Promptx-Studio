@@ -78,7 +78,7 @@ document.addEventListener("DOMContentLoaded", () => {
     recognition.onend = () => {
       voiceBtn.classList.remove("recording");
       voiceBtn.innerText = "🎤";
-      promptInput.placeholder = "Enter your prompt or use voice";
+      promptInput.placeholder = 'Type "/" to see available audio/video operations, or use voice';
       isRecording = false;
     };
 
@@ -118,10 +118,143 @@ document.addEventListener("DOMContentLoaded", () => {
     voiceBtn.style.display = "none";
   }
 
+  // ========== SLASH COMMAND SUGGESTIONS ==========
+  const suggestionBox = document.getElementById("suggestionBox");
+  const suggestionList = document.getElementById("suggestionList");
+  const videoOperations = [
+    "Remove silence",
+    "Add captions",
+    "Make it for Reels",
+    "Make it for YouTube Shorts",
+    "Auto-zoom on speaker",
+    "Color grading",
+    "Extract audio",
+    "Remove background noise",
+    "Add background music",
+    "Generate summary",
+    "Add B-roll",
+    "Resize to 9:16",
+    "Resize to 16:9",
+  ];
+  let slashIndex = -1;
+  let selectedSuggestionIndex = -1;
+
+  if (promptInput && suggestionBox && suggestionList) {
+    // Show suggestions on input
+    promptInput.addEventListener("input", (e) => {
+      const val = promptInput.value;
+      const cursorPosition = promptInput.selectionStart;
+
+      // Extract text up to the cursor
+      const textUpToCursor = val.substring(0, cursorPosition);
+      const lastSlashIndex = textUpToCursor.lastIndexOf("/");
+
+      if (lastSlashIndex !== -1) {
+        // Check if there is a space after the slash before the cursor
+        const textAfterSlash = textUpToCursor.substring(lastSlashIndex + 1);
+        if (textAfterSlash.includes(" ")) {
+          closeSuggestions();
+          return;
+        }
+
+        slashIndex = lastSlashIndex;
+        const query = textAfterSlash.toLowerCase();
+
+        // Filter operations based on query
+        const filteredOps = videoOperations.filter(op => op.toLowerCase().includes(query));
+
+        if (filteredOps.length > 0) {
+          renderSuggestions(filteredOps);
+        } else {
+          closeSuggestions();
+        }
+      } else {
+        closeSuggestions();
+      }
+    });
+
+    // Keyboard navigation
+    promptInput.addEventListener("keydown", (e) => {
+      if (!suggestionBox.classList.contains("hidden")) {
+        const items = suggestionList.querySelectorAll("li");
+
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          selectedSuggestionIndex = (selectedSuggestionIndex + 1) % items.length;
+          updateSelection(items);
+        } else if (e.key === "ArrowUp") {
+          e.preventDefault();
+          selectedSuggestionIndex = (selectedSuggestionIndex - 1 + items.length) % items.length;
+          updateSelection(items);
+        } else if (e.key === "Enter" || e.key === "Tab") {
+          if (selectedSuggestionIndex >= 0 && selectedSuggestionIndex < items.length) {
+            e.preventDefault();
+            items[selectedSuggestionIndex].click();
+          }
+        } else if (e.key === "Escape") {
+          closeSuggestions();
+        }
+      }
+    });
+
+    function renderSuggestions(options) {
+      suggestionList.innerHTML = "";
+      selectedSuggestionIndex = -1;
+
+      options.forEach((op, index) => {
+        const li = document.createElement("li");
+        li.textContent = op;
+        li.addEventListener("click", () => {
+          const val = promptInput.value;
+          const beforeSlash = val.substring(0, slashIndex);
+          // Split the original string by taking the part after the space or end
+          const afterWordMatch = val.substring(slashIndex).match(/\\s(.*)/);
+          const afterSlashWord = afterWordMatch ? " " + afterWordMatch[1] : "";
+
+          const newValue = beforeSlash + op + (afterSlashWord ? afterSlashWord : ", ");
+
+          promptInput.value = newValue;
+          closeSuggestions();
+          promptInput.focus();
+        });
+        suggestionList.appendChild(li);
+      });
+
+      suggestionBox.classList.remove("hidden");
+    }
+
+    function updateSelection(items) {
+      items.forEach((item, index) => {
+        if (index === selectedSuggestionIndex) {
+          item.classList.add("selected");
+          // Scroll item into view if not visible
+          item.scrollIntoView({ block: "nearest" });
+        } else {
+          item.classList.remove("selected");
+        }
+      });
+    }
+
+    function closeSuggestions() {
+      suggestionBox.classList.add("hidden");
+      suggestionList.innerHTML = "";
+      slashIndex = -1;
+      selectedSuggestionIndex = -1;
+    }
+
+    // Close on click outside
+    document.addEventListener("click", (e) => {
+      if (e.target !== promptInput && !suggestionBox.contains(e.target)) {
+        closeSuggestions();
+      }
+    });
+  }
+
   // ========== VIDEO PROCESSING ==========
   if (processBtn) {
     processBtn.addEventListener("click", async () => {
       const fileInput = document.getElementById("video");
+      const audioInput = document.getElementById("memeAudio");
       const promptInput = document.getElementById("prompt");
       const prompt = promptInput ? promptInput.value.trim() : "";
 
@@ -143,6 +276,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!checkQuota()) return; // Block if quota exceeded
 
       const file = fileInput ? fileInput.files[0] : null;
+      const audioFile = audioInput ? audioInput.files[0] : null;
 
       if (!file && !prompt) {
         resultVideo.innerHTML = `<p style="color: #ef4444;">❌ Please upload a video or enter a generation prompt.</p>`;
@@ -169,6 +303,10 @@ document.addEventListener("DOMContentLoaded", () => {
         const formData = new FormData();
         formData.append("prompt", prompt);
         formData.append("user_email", userEmail);
+
+        // Pass admin state to backend to bypass db checks for text-to-video
+        const isAdmin = localStorage.getItem("promptx_admin") === "true";
+        formData.append("is_admin", isAdmin);
 
         try {
           const response = await fetch("/process-video/", {
@@ -205,8 +343,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const formData = new FormData();
       formData.append("video", file);
+      if (audioFile) formData.append("insert_file", audioFile);
       formData.append("prompt", prompt);
       formData.append("user_email", userEmail);
+
+      // Pass admin state to backend to bypass db checks
+      const isAdmin = localStorage.getItem("promptx_admin") === "true";
+      formData.append("is_admin", isAdmin);
 
       try {
         const response = await fetch("/process-video/", {
@@ -327,28 +470,182 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
+    // Check if user has an active Pro subscription (Weekly, Monthly, Annually)
+    if (localStorage.getItem("promptx_is_subscribed") === "true") {
+      quotaMessageDiv.innerHTML = `<span style="color: #7c3aed; font-weight: 800;">PROMPTX Pro Active (Unlimited)</span>`;
+      return;
+    }
+
     const current = getUsageCount();
     const remaining = Math.max(0, MAX_FREE_PROMPTS - current);
 
     if (remaining === 0) {
-      quotaMessageDiv.innerHTML = `<span style="color: #ef4444; font-weight: 800;">Free Trial Ended</span> • <a href="#subscription" style="color: var(--accent); text-decoration: underline; font-weight: 600;">Upgrade</a>`;
+      quotaMessageDiv.innerHTML = `<span style="color: #ef4444; font-weight: 800;">Quota Exceeded</span> • <a href="#" id="upgradeLink" style="color: var(--accent); text-decoration: underline; font-weight: 600;">Upgrade</a>`;
+
+      const upgradeLink = document.getElementById("upgradeLink");
+      if (upgradeLink) {
+        upgradeLink.addEventListener("click", (e) => {
+          e.preventDefault();
+          document.getElementById("subscriptionModal").style.display = "flex";
+        });
+      }
     } else {
-      quotaMessageDiv.innerHTML = `<span id="quotaCount" style="color: var(--text); font-weight: 800;">${remaining}</span> Free Prompts Remaining`;
+      // If current usage is negative OR they have the paid user flag, drop the word "Free"
+      if (current < 0 || localStorage.getItem("promptx_paid_user") === "true") {
+        quotaMessageDiv.innerHTML = `<span id="quotaCount" style="color: var(--text); font-weight: 800;">${remaining}</span> Prompts Remaining`;
+      } else {
+        quotaMessageDiv.innerHTML = `<span id="quotaCount" style="color: var(--text); font-weight: 800;">${remaining}</span> Free Prompts Remaining`;
+      }
     }
   }
 
+  // ========== SUBSCRIPTION & RAZORPAY LOGIC ==========
+  const subModal = document.getElementById("subscriptionModal");
+  const closeSubModal = document.getElementById("closeSubModal");
+  const buyBtns = document.querySelectorAll(".buy-btn");
+
+  if (closeSubModal) {
+    closeSubModal.addEventListener("click", () => subModal.style.display = "none");
+  }
+
+  // Close modal on outside click
+  window.addEventListener("click", (e) => {
+    if (e.target === subModal) subModal.style.display = "none";
+  });
+
+  // Handle Buy Clicks
+  buyBtns.forEach(btn => {
+    btn.addEventListener("click", async (e) => {
+      const planId = e.target.getAttribute("data-plan");
+      const userEmail = localStorage.getItem("promptx_user_email");
+
+      if (!userEmail) {
+        alert("Please log in to purchase a subscription.");
+        window.location.href = "/";
+        return;
+      }
+
+      e.target.disabled = true;
+      e.target.innerText = "Processing...";
+
+      try {
+        // 1. Create Order on Backend
+        const orderRes = await fetch("/api/create-order", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ plan_id: planId, email: userEmail })
+        });
+
+        const orderData = await orderRes.json();
+        if (orderData.detail) throw new Error(orderData.detail);
+
+        // 1.5 Fetch Razorpay Config
+        const configRes = await fetch("/api/config");
+        const configData = await configRes.json();
+
+        if (!configData.razorpay_key_id) {
+          throw new Error("Razorpay key not configured on server.");
+        }
+
+        // 2. Initialize Razorpay
+        const options = {
+          key: configData.razorpay_key_id,
+          amount: orderData.amount,
+          currency: orderData.currency,
+          name: "PROMPTX STUDIO",
+          description: `Subscription: ${planId.toUpperCase()}`,
+          order_id: orderData.order_id,
+
+          handler: async function (response) {
+            // 3. Verify Payment on Backend
+            try {
+              const verifyRes = await fetch("/api/verify-payment", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_order_id: response.razorpay_order_id,
+                  razorpay_signature: response.razorpay_signature,
+                  email: userEmail,
+                  plan_id: planId
+                })
+              });
+
+              const verifyData = await verifyRes.json();
+              if (verifyData.success) {
+                alert("Payment Successful! Your account has been upgraded.");
+                subModal.style.display = "none";
+
+                // Immediately update local UI so they don't have to refresh
+                if (planId === "per_video") {
+                  // The backend adds 1 to trials_left, but our frontend currently tracks 
+                  // "promptX_usage_count" (how many times they've used it out of 5).
+                  // To "add 1 video", we should decrement the usage_count by 1, 
+                  // so they get 1 more use before hitting the limit again.
+                  let currentUsage = parseInt(localStorage.getItem("promptX_usage_count") || "0");
+                  let newUsage = Math.max(0, currentUsage - 1);
+                  localStorage.setItem("promptX_usage_count", newUsage.toString());
+                  localStorage.setItem("promptx_paid_user", "true");
+
+                  // Also update promptx_trials_left if you use it elsewhere
+                  let currentTrials = parseInt(localStorage.getItem("promptx_trials_left") || "0");
+                  localStorage.setItem("promptx_trials_left", currentTrials + 1);
+                } else {
+                  localStorage.setItem("promptx_is_subscribed", "true");
+                }
+
+                location.reload(); // Quick refresh to clear old UI state
+              } else {
+                alert("Payment verification failed.");
+              }
+            } catch (err) {
+              console.error(err);
+              alert("An error occurred during verification.");
+            }
+          },
+          prefill: {
+            email: userEmail
+          },
+          theme: {
+            color: "#7c3aed"
+          }
+        };
+
+        const rzp1 = new Razorpay(options);
+        rzp1.on('payment.failed', function (response) {
+          alert(`Payment Failed: ${response.error.description}`);
+        });
+        rzp1.open();
+
+      } catch (err) {
+        console.error(err);
+        alert(err.message || "Failed to initialize payment gateway.");
+      } finally {
+        e.target.disabled = false;
+        e.target.innerText = planId === "per_video" ? "Buy Now" : "Subscribe";
+      }
+    });
+  });
+
   function checkQuota() {
     if (localStorage.getItem("promptx_admin") === "true") return true;
+    if (localStorage.getItem("promptx_is_subscribed") === "true") return true;
 
     if (getUsageCount() >= MAX_FREE_PROMPTS) {
       if (resultVideo) {
         resultVideo.innerHTML = `
           <div style="background: var(--soft); border: 1px solid var(--border); padding: 16px; border-radius: var(--radius); text-align: center;">
-            <p style="font-size: 16px; font-weight: 800; color: #ef4444; margin-bottom: 8px;">🚀 Free Trial Ended</p>
-            <p style="color: var(--text); font-size: 14px; margin-bottom: 12px;">You've used all 5 of your free trial prompts!</p>
-            <a href="#subscription" style="display: inline-block; padding: 8px 16px; background: var(--accent); color: white; text-decoration: none; border-radius: 8px; font-weight: 700; font-size: 14px;">View Subscription Plans</a>
+            <p style="font-size: 16px; font-weight: 800; color: #ef4444; margin-bottom: 8px;">🚀 Limit Reached</p>
+            <p style="color: var(--text); font-size: 14px; margin-bottom: 12px;">You've used all of your available quota!</p>
+            <button id="inlineUpgradeBtn" style="padding: 8px 16px; background: var(--accent); color: white; border: none; cursor: pointer; border-radius: 8px; font-weight: 700; font-size: 14px;">Upgrade to PROMPTX Pro</button>
           </div>
         `;
+
+        // Bind the inline upgrade button to open the modal
+        const inlineUpgradeBtn = document.getElementById("inlineUpgradeBtn");
+        if (inlineUpgradeBtn && subModal) {
+          inlineUpgradeBtn.addEventListener("click", () => subModal.style.display = "flex");
+        }
       }
       return false; // Blocks operation
     }

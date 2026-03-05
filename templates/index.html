@@ -5,8 +5,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PROMPTX STUDIO</title>
-  <link rel="stylesheet" href="/static/style.css?v=2.0">
+  <link rel="icon" href="/static/favicon.png?v=4" type="image/png">
+  <link rel="stylesheet" href="/static/style.css?v=3.3">
   <link rel="stylesheet" href="/static/share.css">
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 </head>
 
 <body>
@@ -29,19 +31,34 @@
   <section id="home" class="section hero">
     <h1>AI-Powered Prompt Editing Engine</h1>
     <p>Edit videos using simple text prompt. No timelines. No complexity.</p>
-    <div class="card">
-      <input type="file" id="video">
-      <div class="input-group">
+    <div class="upload-options">
+      <div class="upload-box">
+        <label for="video" class="upload-label">🎬 Main Video</label>
+        <input type="file" id="video" accept="video/*" title="Upload Main Video">
+      </div>
+      <div class="upload-box">
+        <label for="memeAudio" class="upload-label">➕ Insert Media (Optional)</label>
+        <input type="file" id="memeAudio" accept="audio/*, video/*"
+          title="Optional: Upload Secondary File (Audio/Video)">
+      </div>
+    </div>
+    <div class="input-group" style="position: relative;">
 
-        <textarea placeholder="Ex: Remove silence, add captions, and make it for Reels..." id="prompt"></textarea>
-        <button id="voiceBtn" title="Speak Prompt">🎤</button>
+      <textarea placeholder='Type "/" to see available audio/video operations, or describe your edits natively...'
+        id="prompt"></textarea>
+      <button id="voiceBtn" title="Speak Prompt">🎤</button>
+
+      <!-- Suggestion Box for Slash Commands -->
+      <div id="suggestionBox" class="suggestion-box hidden">
+        <ul id="suggestionList"></ul>
       </div>
-      <button id="processBtn">Process Video</button>
-      <div id="quotaMessage"
-        style="text-align: center; margin-top: 8px; font-size: 13px; font-weight: 600; color: var(--muted);">
-        <span id="quotaCount">5</span> Free Prompts Remaining
-      </div>
-      <div id="resultVideo"></div>
+    </div>
+    <button id="processBtn">Process Video</button>
+    <div id="quotaMessage"
+      style="text-align: center; margin-top: 8px; font-size: 13px; font-weight: 600; color: var(--muted);">
+      <span id="quotaCount">5</span> Free Prompts Remaining
+    </div>
+    <div id="resultVideo"></div>
     </div>
   </section>
 
@@ -278,9 +295,66 @@
       </div>
     </div>
   </div>
+  </div>
+
+  <!-- Subscription Modal -->
+  <div id="subscriptionModal" class="modal-overlay" style="display: none;">
+    <div class="modal-content subscription-modal">
+      <button class="close-modal" id="closeSubModal">&times;</button>
+      <h2>Upgrade to PROMPTX Pro</h2>
+      <p style="color: var(--muted); margin-bottom: 24px;">Unlock the full potential of limitless AI video editing.</p>
+
+      <div class="pricing-grid">
+        <div class="pricing-card">
+          <h3>Weekly</h3>
+          <div class="price">₹99<span class="period">/week</span></div>
+          <ul class="features-list">
+            <li>Basic AI Editing</li>
+            <li>720p Uploads</li>
+            <li>Captioning (Limited)</li>
+          </ul>
+          <button class="buy-btn" data-plan="weekly">Get Started</button>
+        </div>
+        <div class="pricing-card popular">
+          <div class="badge">Most Popular</div>
+          <h3>Monthly</h3>
+          <div class="price">₹349<span class="period">/month</span></div>
+          <ul class="features-list">
+            <li>Advanced AI Models</li>
+            <li>1080p Uploads</li>
+            <li>Unlimited Captions</li>
+            <li>Priority Processing</li>
+          </ul>
+          <button class="buy-btn" data-plan="monthly">Go Pro</button>
+        </div>
+        <div class="pricing-card">
+          <h3>Annually</h3>
+          <div class="price">₹4,499<span class="period">/year</span></div>
+          <ul class="features-list">
+            <li>Everything in Monthly</li>
+            <li>4K Resolution Support</li>
+            <li>Beta Features Access</li>
+            <li>Dedicated Support</li>
+          </ul>
+          <button class="buy-btn" data-plan="annual">Save Big</button>
+        </div>
+        <div class="pricing-card">
+          <h3>Pay Per Video</h3>
+          <div class="price">₹9<span class="period">/video</span></div>
+          <ul class="features-list">
+            <li>No Commitment</li>
+            <li>720p Processing</li>
+            <li>Basic AI Features</li>
+            <li>Perfect for Trials</li>
+          </ul>
+          <button class="buy-btn" data-plan="per_video">Try Now</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <script src="/static/share.js"></script>
-  <script src="/static/script.js?v=1.5"></script>
+  <script src="/static/script.js?v=1.7"></script>
 </body>
 
 </html>

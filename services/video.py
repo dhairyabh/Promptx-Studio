@@ -88,6 +88,135 @@ def adjust_speed(input_path, output_path, speed=1.5):
     subprocess.run(command, check=True)
     return output_path
 
+def insert_audio(input_path, output_path, audio_path, timestamp_sec=0.0):
+    """
+    Overlays a secondary audio file (like a meme sound) onto the main video
+    at the exact specified timestamp_sec using FFmpeg.
+    """
+    if not audio_path or not os.path.exists(audio_path):
+        import shutil
+        print(f"DEBUG: Audio path {audio_path} not found. Returning original video.")
+        shutil.copy(input_path, output_path)
+        return output_path
+        
+    delay_ms = int(timestamp_sec * 1000)
+    
+    # FFmpeg complex filter:
+    # 1. Take the secondary audio [1:a] and delay it by delay_ms
+    # 2. Mix the primary audio [0:a] with the delayed secondary audio [aud1]
+    # 'amix' is used so that both audios can be heard.
+    # We use 'normalize=0' on modern FFmpeg, or let it auto-scale.
+    # 'duration=first' ensures the output length matches the main video.
+    
+    # Check if input file has a video stream
+    probe_cmd = ["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=codec_type", "-of", "csv=p=0", input_path]
+    has_video = False
+    try:
+        probe_result = subprocess.run(probe_cmd, capture_output=True, text=True)
+        if probe_result.stdout.strip() == "video":
+            has_video = True
+    except Exception as e:
+        print(f"DEBUG: Error probing video: {e}")
+        has_video = True # Assume video by default if probe fails
+
+    command = [
+        "ffmpeg", "-y", "-nostdin",
+        "-i", input_path,
+        "-i", audio_path,
+        "-filter_complex", f"[1:a]adelay={delay_ms}|{delay_ms}[delayed_audio];[0:a][delayed_audio]amix=inputs=2:duration=first:dropout_transition=2[aout]"
+    ]
+    
+    if has_video:
+        command.extend([
+            "-map", "0:v",   # Keep original video
+            "-map", "[aout]", # Use mixed audio
+            "-c:v", "copy",  # Copy video codec for speed
+            "-c:a", "aac",   # Re-encode mixed audio
+        ])
+    else:
+        command.extend([
+            "-map", "[aout]", # Use mixed audio only
+            "-c:a", "libmp3lame", # Re-encode as mp3
+            "-q:a", "2"
+        ])
+        
+    command.append(output_path)
+    
+    subprocess.run(command, check=True)
+    return output_path
+
+def insert_video(input_path, output_path, insert_path, timestamp_sec=0.0):
+    """
+    Inserts a secondary video into the main video at the given timestamp_sec.
+    Splits the main video at timestamp, inserts the secondary video (scaling it 
+    first to match the main video's properties to prevent errors), and concatenates.
+    """
+    if not insert_path or not os.path.exists(insert_path):
+        import shutil
+        print(f"DEBUG: Video path {insert_path} not found. Returning original video.")
+        shutil.copy(input_path, output_path)
+        return output_path
+
+    # FFmpeg complex concat approach:
+    # We split input_path [0:v] into part A (before timestamp) and part B (after timestamp)
+    # We take insert_path [1:v] and scale it to match [0:v] resolution/SAR to safely concat
+    # Then we concat Part A + Scaled Inserted Video + Part B
+    
+    # Get main video properties to ensure safe scaling
+    probe_cmd = ["ffprobe", "-v", "error", "-select_streams", "v:0", 
+                 "-show_entries", "stream=width,height,sample_aspect_ratio,r_frame_rate", 
+                 "-of", "csv=p=0", input_path]
+    probe_output = subprocess.run(probe_cmd, capture_output=True, text=True).stdout.strip().split(',')
+    
+    # Simple fallback if probe fails
+    width_height_str = "1280:-2" # default safe fallback (e.g. 720p width)
+    fps = "30"
+    if len(probe_output) >= 4:
+        w, h, sar, r_frame_rate = probe_output
+        if w and w != "N/A":
+            # Scale to match exact width, dynamic height preserving aspect
+            width_height_str = f"{w}:-2" 
+        # Attempt to grab fps for the concat framerate match
+        if r_frame_rate and r_frame_rate != "N/A":
+            fps = r_frame_rate
+
+    # The filter_complex:
+    # [0:v]trim=end={time}[v0]; [0:a]atrim=end={time}[a0]
+    # [1:v]scale={scale_w_h},setsar=1,fps={fps}[v1]; [1:a]anull[a1]
+    # [0:v]trim=start={time},setpts=PTS-STARTPTS[v2]; [0:a]atrim=start={time},asetpts=PTS-STARTPTS[a2]
+    # [v0][a0][v1][a1][v2][a2]concat=n=3:v=1:a=1[outv][outa]
+    filter_complex = (
+        f"[0:v]trim=start=0:end={timestamp_sec},setpts=PTS-STARTPTS[v0]; "
+        f"[0:a]atrim=start=0:end={timestamp_sec},asetpts=PTS-STARTPTS[a0]; "
+        f"[1:v]scale={width_height_str},setsar=1,fps={fps}[v1]; "
+        f"[1:a]anull[a1]; "
+        f"[0:v]trim=start={timestamp_sec},setpts=PTS-STARTPTS[v2]; "
+        f"[0:a]atrim=start={timestamp_sec},asetpts=PTS-STARTPTS[a2]; "
+        f"[v0][a0][v1][a1][v2][a2]concat=n=3:v=1:a=1[outv][outa]"
+    )
+
+    command = [
+        "ffmpeg", "-y", "-nostdin",
+        "-i", input_path,
+        "-i", insert_path,
+        "-filter_complex", filter_complex,
+        "-map", "[outv]",
+        "-map", "[outa]",
+        "-c:v", "libx264", 
+        "-c:a", "aac",
+        output_path
+    ]
+    
+    try:
+        subprocess.run(command, check=True)
+        return output_path
+    except subprocess.CalledProcessError as e:
+        print(f"DEBUG: FFmpeg Concat Failed: {e}")
+        # Return fallback file if it crashed
+        import shutil
+        shutil.copy(input_path, output_path)
+        return output_path
+
 def trim_video(input_path, output_path, start_trim=0, end_trim=0):
     dur_cmd = ["ffmpeg", "-i", input_path, "-hide_banner"]
     dur_res = subprocess.run(dur_cmd, stderr=subprocess.PIPE, text=True)
@@ -395,6 +524,148 @@ def resize_to_horizontal(input_path, output_path):
     ]
     
     subprocess.run(command, check=True)
+    return output_path
+
+def auto_zoom_speaker(input_path, output_path):
+    """
+    Auto-zooms and tracks the speaker's face to create a dynamic vertical (9:16) video.
+    Uses OpenCV Haar Cascades for fast face detection and FFmpeg for cropping.
+    """
+    import cv2
+    import numpy as np
+    
+    cap = cv2.VideoCapture(input_path)
+    if not cap.isOpened():
+        raise Exception("Error: Could not open video file for auto-zoom.")
+
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    
+    # Target 9:16 aspect ratio (we'll keep full height, crop width)
+    target_h = height
+    target_w = int(height * (9 / 16))
+    
+    if target_w > width:
+        # Prevent stretching if original is narrower than 9:16
+        target_w = width
+        target_h = int(width * (16 / 9))
+
+    # Fast face detector
+    face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+
+    centers = []
+    
+    print(f"DEBUG: Scanning {total_frames} frames for Auto-Zoom...")
+    
+    # Pass 1: Scan every Nth frame to find the face center trajectory
+    step = max(1, int(fps / 4)) # Scan 4 frames per second
+    
+    # Default center if no face found
+    default_cx = width // 2
+    
+    while cap.isOpened():
+        ret, frame = cap.read()
+        if not ret: break
+        
+        current_frame = int(cap.get(cv2.CAP_PROP_POS_FRAMES))
+        if current_frame % step != 0:
+            continue
+            
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        
+        # Optimize for speed with scaleFactor and minNeighbors
+        faces = face_cascade.detectMultiScale(gray, scaleFactor=1.3, minNeighbors=5, minSize=(60, 60))
+        
+        if len(faces) > 0:
+            # Pick largest face
+            faces = sorted(faces, key=lambda x: x[2]*x[3], reverse=True)
+            x, y, w_f, h_f = faces[0]
+            cx = x + w_f // 2
+            centers.append((current_frame, cx))
+        else:
+            centers.append((current_frame, -1)) # -1 indicates no face
+
+    cap.release()
+
+    if not centers:
+        print("DEBUG: No frames processed for auto-zoom. Falling back to static vertical resize.")
+        return resize_to_vertical(input_path, output_path)
+
+    # Post-process centers to smooth movement and handle missing detections
+    processed_centers = []
+    last_valid_cx = default_cx
+
+    for frame_idx, cx in centers:
+        if cx != -1:
+            last_valid_cx = cx
+        processed_centers.append(last_valid_cx)
+
+    # Very basic smoothing (moving average)
+    smoothed_cx = np.convolve(processed_centers, np.ones(5)/5, mode='same')
+    
+    # Convert back to a list of (frame, cx)
+    final_trajectory = [(centers[i][0], int(smoothed_cx[i])) for i in range(len(centers))]
+
+    # Build FFmpeg sendcmd file for dynamic cropping
+    # This tells FFmpeg to move the crop box over time
+    cmd_file_path = os.path.join(os.path.dirname(output_path), f"zoom_cmds_{uuid.uuid4().hex[:8]}.txt")
+    
+    with open(cmd_file_path, "w") as f:
+        # Initialize crop filter
+        # It's better to use variables in FFmpeg crop filter that we update
+        f.write("# FFmpeg SendCmds for Auto-Zoom\n")
+        
+        for i in range(len(final_trajectory)):
+            frame_n, cx = final_trajectory[i]
+            
+            # Calculate top-left x of the crop box
+            # Ensure it doesn't go out of bounds
+            crop_x = cx - (target_w // 2)
+            crop_x = max(0, min(crop_x, width - target_w))
+            
+            # Time in seconds
+            t_start = frame_n / fps
+            
+            if i < len(final_trajectory) - 1:
+                t_end = final_trajectory[i+1][0] / fps
+            else:
+                t_end = total_frames / fps
+                
+            # Send command to update 'x' variable of crop filter
+            # syntax: [start_time] [end_time] [target] [command] [argument]
+            f.write(f"{t_start:.3f} {t_end:.3f} [enter] crop x {crop_x};\n")
+
+    # Command to run FFmpeg with sendcmd and crop filter
+    # Note: sendcmd requires precise filter graph setup
+    
+    # Windows paths need careful escaping for FFmpeg filters
+    abs_cmd_path = os.path.abspath(cmd_file_path).replace("\\", "/")
+    abs_cmd_path = abs_cmd_path.replace(":", "\\:")
+    
+    # The crop filter needs naming so sendcmd can target it.
+    # e.g., sendcmd=f='commands.txt',crop=w=target_w:h=target_h:x='cx':y=0
+    
+    command = [
+        "ffmpeg", "-y", "-nostdin",
+        "-i", input_path,
+        "-filter_complex", 
+        f"sendcmd=f='{abs_cmd_path}',crop=w={target_w}:h={target_h}:y=0:x=0",
+        "-c:v", "libx264",
+        "-c:a", "copy",
+        output_path
+    ]
+    
+    try:
+        subprocess.run(command, check=True)
+    except Exception as e:
+        print(f"DEBUG: FFmpeg Auto-Zoom Failed: {e}. Falling back to static crop.")
+        resize_to_vertical(input_path, output_path)
+    finally:
+        if os.path.exists(cmd_file_path):
+            os.remove(cmd_file_path)
+
     return output_path
 
 def extract_audio(input_path, output_path):

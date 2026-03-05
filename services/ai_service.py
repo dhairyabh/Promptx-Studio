@@ -380,6 +380,8 @@ def extract_intent_gemini(user_prompt: str):
         - "remove_silence": User wants to remove silent parts.
         - "remove_noise": User wants to clean audio/remove background noise.
         - "add_captions": User wants to add subtitles.
+        - "insert_audio": User wants to overlay/insert an uploaded audio file (e.g. meme sound) at a specific time in the video.
+        - "insert_video": User wants to insert/splice an uploaded secondary video file into the main video at a specific time.
         - "resize_vertical": User wants 9:16 aspect ratio (Shorts/Reels).
         - "resize_horizontal": User wants 16:9 aspect ratio.
         - "adjust_speed": User wants to change video speed.
@@ -391,6 +393,7 @@ def extract_intent_gemini(user_prompt: str):
         - "start_trim" (int): Seconds to remove from start. Default 0.
         - "end_trim" (int): Seconds to remove from end. Default 0.
         - "duration" (int): Requested duration for NEW video generation (in seconds). Default 8 if not specified.
+        - "insert_timestamp" (float): The exact absolute time (in seconds) the user wants the secondary audio or video inserted at. (e.g., 'at 5 seconds' means 5.0). Default 0.0.
         - "target_language" (str): Language for captions/summary.
         - "speed" (float): Speed multiplier (e.g., 1.5, 0.5). Default 1.0.
         - "model" (str): 'veo' or specific model name if mentioned.
@@ -407,6 +410,7 @@ def extract_intent_gemini(user_prompt: str):
                 "start_trim": 0,
                 "end_trim": 0,
                 "duration": 8,
+                "insert_timestamp": 0.0,
                 "target_language": null,
                 "speed": 1.0,
                 "model": "veo"
