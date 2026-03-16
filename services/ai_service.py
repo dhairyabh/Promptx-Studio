@@ -73,8 +73,9 @@ def generate_srt_gemini(media_path: str, target_language: str = None):
             Rules:
             - Output ONLY the raw SRT text. No markdown tags, no notes.
             - STRICT Timestamp Format: HH:MM:SS,mmm (e.g., 00:00:05,123 --> 00:00:10,500).
-            - TIMESTAMPS MUST BE SURGICALLY TIGHT: Start the timestamp at the EXACT millisecond the first phoneme of a word begins, and end EXACTLY when the last phoneme ends. ZERO PADDING.
-            - Meaningful segment breaks.
+            - WORD-BY-WORD PRECISION: Each SRT segment MUST contain a MAXIMUM of 1 to 3 words.
+            - TIMESTAMPS MUST BE SURGICALLY TIGHT: Start the timestamp at the EXACT millisecond the first word begins, and end EXACTLY when the last word in that segment ends.
+            - WORD-BY-WORD PRECISION: Each SRT segment MUST contain a MAXIMUM of 1 to 3 words.
             - COMPLETELY IGNORE the original language if a target language is specified; PRODUCING ONLY {target_language if target_language else 'ORIGINAL LANGUAGE'} SUBTITLES.
             """
 
@@ -105,10 +106,32 @@ def generate_srt_gemini(media_path: str, target_language: str = None):
             
             return f"Error generating SRT: {error_msg}"
 
-def _fix_srt_content(text):
+def _adjust_timestamp(ts_str: str, offset_sec: float) -> str:
     """
-    Attempts to fix common SRT formatting issues from LLM output.
-    Ensures indices exist and timestamps are in HH:MM:SS,mmm format.
+    Shifts a timestamp string (HH:MM:SS,mmm) by offset_sec.
+    Ensures the time doesn't go below 00:00:00,000.
+    """
+    try:
+        h, m, sm = ts_str.split(':')
+        s, ms = sm.split(',')
+        total_ms = (int(h) * 3600000 + int(m) * 60000 + int(s) * 1000 + int(ms))
+        
+        offset_ms = int(offset_sec * 1000)
+        new_total_ms = max(0, total_ms + offset_ms)
+        
+        new_h = new_total_ms // 3600000
+        new_m = (new_total_ms % 3600000) // 60000
+        new_s = (new_total_ms % 60000) // 1000
+        new_ms = new_total_ms % 1000
+        
+        return f"{new_h:02d}:{new_m:02d}:{new_s:02d},{new_ms:03d}"
+    except:
+        return ts_str
+
+def _fix_srt_content(text, offset_sec: float = -0.3):
+    """
+    Attempts to fix common SRT formatting issues and applies a timing offset.
+    Default offset is -0.3s to make captions feel more 'snappy' and aligned with speech onset.
     """
     import re
     
@@ -176,8 +199,13 @@ def _fix_srt_content(text):
                 return f"{h}:{m}:{s_ms}"
             return ts
 
-        start_ts = normalize_ts(ts_parts[0])
-        end_ts = normalize_ts(ts_parts[1])
+        raw_start = normalize_ts(ts_parts[0])
+        raw_end = normalize_ts(ts_parts[1])
+        
+        # Apply Offset
+        start_ts = _adjust_timestamp(raw_start, offset_sec)
+        end_ts = _adjust_timestamp(raw_end, offset_sec)
+        
         block_lines.append(f"{start_ts} --> {end_ts}")
         
         # 3. Append Text
@@ -261,7 +289,7 @@ def _update_quota_usage(seconds):
     with open(QUOTA_FILE, "w") as f:
         json.dump(usage, f)
 
-def generate_video_veo(prompt: str, output_path: str, model: str = 'veo-3.1-generate-preview', duration: int = 8):
+def generate_video_veo(prompt: str, output_path: str, model: str = 'veo-3.1-fast-generate-preview', duration: int = 8):
     """
     Generates a video using Google Veo based on the provided prompt.
     Supports extended durations by looping generation.
@@ -402,6 +430,7 @@ def extract_intent_gemini(user_prompt: str):
         - "watermark_width" (int): 0-100 (percentage of width).
         - "watermark_height" (int): 0-100 (percentage of height).
         - "watermark_strategy" (str): 'heal' (High-Quality AI, slow), 'fast' (FFmpeg Lightning, fast), or 'crop' (Zero-Blur, corner only).
+        - "background_change" (str): 'green' or other color if mentioned.
 
         Output Format (JSON ONLY):
         {

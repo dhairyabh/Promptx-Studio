@@ -2,6 +2,7 @@ import os
 import urllib.parse
 from pymongo import MongoClient
 from dotenv import load_dotenv
+import certifi
 
 def get_db():
     env_path = os.path.join(os.path.dirname(__file__), ".env")
@@ -31,7 +32,7 @@ def get_db():
             print(f"Warning: Could not auto-escape URI: {parse_error}")
 
     try:
-        client = MongoClient(uri)
+        client = MongoClient(uri, tlsCAFile=certifi.where(), tlsAllowInvalidCertificates=True)
         # Verify connection
         client.admin.command('ping')
         return client.promtx_studio

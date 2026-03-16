@@ -6,11 +6,12 @@
     --surface: #1e293b;
     --text: #f8fafc;
     --muted: #94a3b8;
-    --accent: #38bdf8;
-    --accent-hover: #0284c7;
+    --accent: #7c3aed;
+    --accent-hover: #6d28d9;
     --border: #334155;
     --radius: 12px;
     --input-bg: #0f172a;
+
 }
 
 * {
@@ -21,7 +22,7 @@
 
 body {
     font-family: 'Plus Jakarta Sans', sans-serif;
-    background-color: var(--bg-color);
+    background: radial-gradient(circle at top right, #4c1d95, #0f172a);
     color: var(--text);
     display: flex;
     align-items: center;
@@ -29,6 +30,7 @@ body {
     height: 100vh;
     margin: 0;
 }
+
 
 .login-container {
     background-color: var(--surface);
@@ -39,6 +41,8 @@ body {
     max-width: 400px;
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
     text-align: center;
+    position: relative;
+    z-index: 10;
 }
 
 .logo {

@@ -16,9 +16,10 @@
   --card: #ffffff;
   --soft: #f8fafc;
 
-  --accent: #0b1220;
-  /* dark accent used in light mode buttons */
-  --accent2: #111827;
+  --accent: #000000;
+  /* Black */
+  --accent2: #1e293b;
+  /* Slate 800 (Dark charcoal) */
 
   --shadow: 0 14px 40px rgba(15, 23, 42, 0.08);
   --shadow2: 0 6px 18px rgba(15, 23, 42, 0.06);
@@ -26,6 +27,11 @@
   --radius: 16px;
   --radius2: 20px;
   --max: 1080px;
+
+  /* Animated BG Colors - Light */
+  --bg-blob-1: rgba(124, 58, 237, 0.15); /* Soft violet */
+  --bg-blob-2: rgba(6, 182, 212, 0.15);  /* Soft cyan */
+  --bg-blob-3: rgba(244, 63, 94, 0.1);   /* Soft rose */
 }
 
 /* DARK (premium) */
@@ -38,16 +44,17 @@
   --border: rgba(255, 255, 255, 0.12);
   --border2: rgba(255, 255, 255, 0.18);
 
-  --card: rgba(255, 255, 255, 0.06);
-  --soft: rgba(255, 255, 255, 0.05);
+  --card: #161b22;
+  --soft: #1c2128;
 
   --accent: #7c3aed;
-  /* violet */
+  /* violet 600 */
   --accent2: #06b6d4;
-  /* cyan */
+  /* cyan 500 */
 
   --shadow: 0 22px 60px rgba(0, 0, 0, 0.45);
   --shadow2: 0 12px 40px rgba(0, 0, 0, 0.30);
+
 }
 
 * {
@@ -68,13 +75,6 @@ body {
   overflow-x: hidden;
 }
 
-/* subtle dark background glow only in dark */
-:root[data-theme="dark"] body {
-  background:
-    radial-gradient(900px 400px at 15% 10%, rgba(124, 58, 237, 0.25), transparent 60%),
-    radial-gradient(900px 400px at 85% 20%, rgba(6, 182, 212, 0.18), transparent 55%),
-    linear-gradient(180deg, #070a12, var(--bg));
-}
 
 /* ---------- NAVBAR ---------- */
 .navbar {
@@ -109,9 +109,8 @@ body {
   content: "";
   width: 8px;
   height: 8px;
-  border-radius: 999px;
   background: var(--accent);
-  box-shadow: 0 0 12px var(--accent);
+  box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
   opacity: 0.9;
 }
 

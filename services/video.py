@@ -265,14 +265,16 @@ def add_captions(input_path, output_path, target_language=None):
         f.write(srt_content)
     
     style = (
-        "FontSize=18,"
+        "FontName=Arial Black,"
+        "FontSize=22,"
         "PrimaryColour=&HFFFFFF,"
         "OutlineColour=&H000000,"
-        "BorderStyle=1,"
-        "Outline=2,"
-        "Shadow=1,"
+        "BackColour=&H80000000,"
+        "BorderStyle=4," 
+        "Outline=0,"
+        "Shadow=0,"
         "Alignment=2,"
-        "MarginV=20"
+        "MarginV=30"
     )
     
     # Use absolute paths for -i and output
@@ -699,7 +701,7 @@ def summarize_video(input_path, output_path, user_prompt: str = ""):
 
     return output_path
 
-def generate_new_video(output_path, prompt, model: str = 'veo-3.1-generate-preview'):
+def generate_new_video(output_path, prompt, model: str = 'veo-3.1-fast-generate-preview'):
     """
     Generates a brand new video using Veo.
     """

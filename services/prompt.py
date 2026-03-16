@@ -37,8 +37,8 @@ def handle_prompt(prompt_text: str, video_path: str = None, final_output_path: s
     # 1. Video Generation Operation (Text-to-Video)
     # Triggered if no video_path or if AI explicitly detects generation
     if not video_path or op == "generate_video":
-        model_version = params.get("model", "veo-3.1-generate-preview")
-        if model_version == "veo": model_version = "veo-3.1-generate-preview"
+        model_version = params.get("model", "veo-3.1-fast-generate-preview")
+        if model_version == "veo": model_version = "veo-3.1-fast-generate-preview"
         
         # Extract duration from AI detected params
         duration = params.get("duration", 8)
@@ -83,7 +83,7 @@ def handle_prompt(prompt_text: str, video_path: str = None, final_output_path: s
         operations.append(remove_noise)
 
     # Visual Background Removal
-    if op == "remove_background" or ("background" in p and any(k in p for k in ["remove", "isolate", "green"])):
+    if op == "remove_background" or ("background" in p and any(k in p for k in ["remove", "isolate", "green", "change"])):
         operations.append(remove_background)
 
     # Watermark Removal
