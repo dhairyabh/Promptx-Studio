@@ -120,7 +120,7 @@ async def process_video_endpoint(
     
     # Bypass logic if frontend declares admin mode
     # Double check dhairya_admin_unlimited just for safety
-    if prompt == "dhairya_admin_unlimited":
+    if prompt == "dhairya_admin_mode":
         is_admin = True
         
     if not is_admin and user_email and db is not None:

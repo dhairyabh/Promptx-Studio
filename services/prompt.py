@@ -35,19 +35,33 @@ def handle_prompt(prompt_text: str, video_path: str = None, final_output_path: s
     params = intent.get("params", {}) if intent else {}
 
     # 1. Video Generation Operation (Text-to-Video)
-    # Triggered if no video_path or if AI explicitly detects generation
-    if not video_path or op == "generate_video":
-        model_version = params.get("model", "veo-3.1-fast-generate-preview")
-        if model_version == "veo": model_version = "veo-3.1-fast-generate-preview"
+    # Triggered if explicitly detected or if no video is provided
+    if op == "generate_video" or (not video_path and prompt_text.strip()):
+        model_version = params.get("model", "wan")
+        logger.info(f"DEBUG: Model selected: {model_version} (Requested: {params.get('model')})")
         
-        # Extract duration from AI detected params
-        duration = params.get("duration", 8)
+        # Use refined visual prompt if Gemini extracted one, otherwise fallback to original
+        generation_prompt = params.get("visual_prompt") or prompt_text
         
-        output_filename = f"generated_{uuid.uuid4()}.mp4"
-        output_path = os.path.join("static", "outputs", output_filename)
+        if model_version == "veo": 
+            # Allow fallback or explicit choice if user mentions veo
+            logger.info(f"DEBUG: Routing to Video Generation via Veo.")
+            duration = params.get("duration", 8)
+            output_filename = f"generated_{uuid.uuid4()}.mp4"
+            output_path = os.path.join("outputs", output_filename)
+            return ai_service.generate_video_veo(generation_prompt, output_path, duration=duration)
         
-        logger.info(f"DEBUG: Routing to Video Generation. Model: {model_version}, Duration: {duration}s")
-        return ai_service.generate_video_veo(prompt_text, output_path, model=model_version, duration=duration)
+        # Default to Wan2.2
+        duration = params.get("duration", 5) # Default 5s for Wan
+        output_filename = f"generated_wan_{uuid.uuid4()}.mp4"
+        output_path = os.path.join("outputs", output_filename)
+        
+        logger.info(f"DEBUG: Routing to Video Generation via Wan2.2 (Fal.ai). Prompt: {generation_prompt}")
+        return ai_service.generate_video_wan(generation_prompt, output_path, duration=duration, script=params.get("script"))
+
+    # Safety: If no video is provided and it wasn't a generation intent
+    if not video_path:
+        raise ValueError("Please upload a video file to perform editing operations.")
 
     # 2. Video Editing Operations
     if not final_output_path:

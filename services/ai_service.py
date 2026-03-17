@@ -2,8 +2,10 @@ from google import genai
 import os
 import json
 import time
+import requests
 from datetime import datetime
 from dotenv import load_dotenv
+import fal_client
 
 def get_api_key():
     env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env")
@@ -28,7 +30,7 @@ def generate_summary(transcript: str):
         """
 
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model="gemini-3-flash-preview",
             contents=prompt
         )
         return response.text.strip()
@@ -81,7 +83,7 @@ def generate_srt_gemini(media_path: str, target_language: str = None):
 
             print(f"Generating SRT using Gemini 2.5 Flash (Target: {target_language if target_language else 'Original'}). Attempt {attempt + 1}/{max_retries}...")
             response = client.models.generate_content(
-                model="gemini-2.5-flash",
+                model="gemini-3-flash-preview",
                 contents=[uploaded_file, prompt]
             )
             
@@ -248,7 +250,7 @@ def generate_summary_gemini(media_path: str, user_prompt: str = ""):
 
             print(f"Analyzing video content with Gemini 2.5 Flash. Attempt {attempt + 1}/{max_retries}...")
             response = client.models.generate_content(
-                model="gemini-2.5-flash",
+                model="gemini-3-flash-preview",
                 contents=[uploaded_file, prompt]
             )
             
@@ -386,6 +388,114 @@ def generate_video_veo(prompt: str, output_path: str, model: str = 'veo-3.1-fast
             raise Exception("REMOTE QUOTA EXHAUSTED: Google has temporarily blocked new video generations for your API key. This is a limit on their side. Try again in 15 minutes, or use a shorter prompt.")
         raise Exception(f"Veo Error: {error_str}")
 
+def generate_video_wan(prompt: str, output_path: str, duration: int = 5, script: str = None):
+    """
+    Generates video using Wan2.2 (via Fal.ai).
+    If a script is provided, it generates TTS audio and performs lip-sync.
+    """
+    fal_key = os.getenv("FAL_KEY")
+    if not fal_key:
+        raise Exception("Error: FAL_KEY is missing in .env file. Please get it from fal.ai.")
+
+    os.environ["FAL_KEY"] = fal_key
+
+    try:
+        print(f"Generating video with Wan2.2 (via Fal.ai): '{prompt}'")
+        
+        # 1. Generate the base video visuals
+        handler = fal_client.submit(
+            "fal-ai/wan/v2.2-a14b/text-to-video",
+            arguments={
+                "prompt": prompt,
+                "aspect_ratio": "16:9",
+                "resolution": "480p",
+                "num_frames": 161 if duration > 5 else (121 if duration >= 5 else 81), 
+                "frames_per_second": 24,
+                "negative_prompt": "blurry, low quality, distorted, static, text, watermark, person indoors (unless specified), unrelated objects",
+            },
+        )
+        
+        result = handler.get()
+        video_url = result.get("video", {}).get("url")
+        
+        if not video_url:
+            raise Exception("Fal.ai returned no video URL.")
+
+        # 2. Handle Speaking Character (TTS + Lip Sync)
+        if script:
+            try:
+                print(f"Detected script: '{script}'. Generating TTS and Lip-Sync...")
+                
+                # a) Generate TTS Audio via MiniMax
+                tts_handler = fal_client.submit(
+                    "fal-ai/minimax-speech",
+                    arguments={
+                        "text": script,
+                        "voice": "male_1" if "man" in prompt.lower() or "boy" in prompt.lower() else "female_1"
+                    }
+                )
+                tts_result = tts_handler.get()
+                audio_url = tts_result.get("audio", {}).get("url")
+                
+                if audio_url:
+                    # b) Perform Lip Sync via Sync v2.0
+                    print(f"Audio generated. Syncing lips to video...")
+                    sync_handler = fal_client.submit(
+                        "fal-ai/sync-lipsync/v2.0",
+                        arguments={
+                            "video_url": video_url,
+                            "audio_url": audio_url
+                        }
+                    )
+                    sync_result = sync_handler.get()
+                    synced_video_url = sync_result.get("video", {}).get("url")
+                    
+                    if synced_video_url:
+                        print("Lip-sync successful!")
+                        video_url = synced_video_url
+                    else:
+                        print("Warning: Lip-sync failed to return a URL. Falling back to background sound.")
+            except Exception as e:
+                print(f"Warning: TTS/LipSync workflow failed: {e}. Falling back to default sound.")
+
+        # 3. Add background sound properties if not lip-synced or as enhancement
+        # Note: MMAudio usually adds SFX/Ambient, so we only run it if no script or as enhancement.
+        # For now, let's skip MMAudio if lip-sync was successful to avoid audio overlap.
+        if not script or (script and "synced_video_url" not in locals()):
+            try:
+                print(f"Generating synchronized background audio with MMAudio V2...")
+                audio_handler = fal_client.submit(
+                    "fal-ai/mmaudio-v2",
+                    arguments={
+                        "video_url": video_url,
+                        "prompt": prompt,
+                        "negative_prompt": "noisy, low quality, distorted audio, static",
+                    }
+                )
+                audio_result = audio_handler.get()
+                final_video_url = audio_result.get("video", {}).get("url")
+                
+                if final_video_url:
+                    video_url = final_video_url
+            except Exception as audio_err:
+                print(f"Warning: MMAudio failed: {audio_err}")
+
+        # Ensure directory exists
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+        # Download the final video
+        response = requests.get(video_url, stream=True)
+        response.raise_for_status()
+        
+        with open(output_path, "wb") as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                f.write(chunk)
+                
+        return output_path
+        
+    except Exception as e:
+        raise Exception(f"Wan2.2 Generation Error: {str(e)}")
+
 def extract_intent_gemini(user_prompt: str):
     """
     Uses Gemini to extract structured intent from a natural language prompt.
@@ -424,13 +534,20 @@ def extract_intent_gemini(user_prompt: str):
         - "insert_timestamp" (float): The exact absolute time (in seconds) the user wants the secondary audio or video inserted at. (e.g., 'at 5 seconds' means 5.0). Default 0.0.
         - "target_language" (str): Language for captions/summary.
         - "speed" (float): Speed multiplier (e.g., 1.5, 0.5). Default 1.0.
-        - "model" (str): 'veo' or specific model name if mentioned.
+        - "model" (str): The video model to use. Use 'wan' as the STRICT DEFAULT. Only use 'veo' if the user explicitly mentions "veo" or "google veo" or "veo model" in their request.
         - "watermark_location" (str): 'top_left', 'top_right', 'bottom_left', 'bottom_right', 'middle_right', 'middle_left', 'center'.
         - "watermark_type" (str): 'small_logo', 'large_banner', or 'full_width'.
         - "watermark_width" (int): 0-100 (percentage of width).
         - "watermark_height" (int): 0-100 (percentage of height).
         - "watermark_strategy" (str): 'heal' (High-Quality AI, slow), 'fast' (FFmpeg Lightning, fast), or 'crop' (Zero-Blur, corner only).
         - "background_change" (str): 'green' or other color if mentioned.
+        - "script" (str): The exact dialogue or text the user wants a character to speak (often in quotes). Translate to the target language if specified.
+        - "visual_prompt" (str): A HIGHLY DETAILED, CINEMATIC, and DESCRIPTIVE visual-only prompt for video generation. 
+          1. REMOVE all command words (e.g., "generate", "create", "video of").
+          2. EXPAND the subject into a rich scene. 
+             - Example Input: "sunset"
+             - Example visual_prompt: "A breathtaking, wide-angle cinematic shot of a vibrant sunset over a calm ocean, golden hour light reflecting on gentle waves, deep orange and purple sky, 4k, hyper-realistic."
+          3. DO NOT include people or indoor settings unless explicitly requested.
 
         Output Format (JSON ONLY):
         {
@@ -442,7 +559,9 @@ def extract_intent_gemini(user_prompt: str):
                 "insert_timestamp": 0.0,
                 "target_language": null,
                 "speed": 1.0,
-                "model": "veo"
+                "model": "wan",
+                "visual_prompt": null,
+                "script": null
             }
         }
         
@@ -451,7 +570,7 @@ def extract_intent_gemini(user_prompt: str):
         """
 
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model="gemini-3-flash-preview",
             contents=f"{system_prompt}\n\nUser Instruction: {user_prompt}",
             config={
                 'response_mime_type': 'application/json'
@@ -484,7 +603,7 @@ def handle_chat_query(user_message: str) -> str:
         """
 
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model="gemini-3-flash-preview",
             contents=f"{system_prompt}\n\nUser: {user_message}",
         )
         
