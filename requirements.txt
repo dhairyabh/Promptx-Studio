@@ -10,3 +10,5 @@ onnxruntime
 python-dotenv
 pymongo
 fal-client
+bcrypt
+razorpay
