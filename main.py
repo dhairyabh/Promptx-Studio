@@ -1,5 +1,6 @@
+from typing import List
 import bcrypt
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,6 +11,8 @@ from dotenv import load_dotenv
 
 from services.prompt import handle_prompt
 from database import get_db
+from services.manual_processor import process_manual_edits
+import json
 
 import logging
 
@@ -18,6 +21,7 @@ load_dotenv(os.path.join(os.path.dirname(__file__), ".env"), override=True)
 # Initialize Razorpay Client
 RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID")
 RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET")
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 
 razorpay_client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET)) if RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET else None
 
@@ -25,6 +29,38 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 app = FastAPI()
+
+# Task Progress Manager using WebSockets
+class ProgressManager:
+    def __init__(self):
+        self.active_connections: dict[str, WebSocket] = {}
+
+    async def connect(self, websocket: WebSocket, task_id: str):
+        await websocket.accept()
+        self.active_connections[task_id] = websocket
+
+    def disconnect(self, task_id: str):
+        if task_id in self.active_connections:
+            del self.active_connections[task_id]
+
+    async def send_progress(self, task_id: str, progress: int):
+        if task_id in self.active_connections:
+            try:
+                await self.active_connections[task_id].send_json({"progress": progress})
+            except Exception as e:
+                logger.error(f"Error sending progress for {task_id}: {e}")
+
+progress_manager = ProgressManager()
+
+@app.websocket("/ws/progress/{task_id}")
+async def websocket_endpoint(websocket: WebSocket, task_id: str):
+    await progress_manager.connect(websocket, task_id)
+    try:
+        while True:
+            # Keep connection open, though we only send from server -> client
+            data = await websocket.receive_text()
+    except WebSocketDisconnect:
+        progress_manager.disconnect(task_id)
 
 app.add_middleware(
     CORSMiddleware,
@@ -47,6 +83,12 @@ app.mount("/outputs", StaticFiles(directory=os.path.join(BASE_DIR, "outputs")), 
 async def index():
     index_path = os.path.join(BASE_DIR, "templates", "index.html")
     with open(index_path, "r", encoding="utf-8") as f:
+        return f.read()
+
+@app.get("/editor", response_class=HTMLResponse)
+async def editor_page():
+    editor_path = os.path.join(BASE_DIR, "templates", "editor.html")
+    with open(editor_path, "r", encoding="utf-8") as f:
         return f.read()
 
 @app.get("/", response_class=HTMLResponse)
@@ -108,31 +150,74 @@ async def signin(email: str = Form(...), password: str = Form(...)):
         "is_subscribed": is_sub
     }
 
+@app.post("/api/google-signin")
+async def google_signin(id_token: str = Form(...)):
+    from google.oauth2 import id_token as google_id_token
+    from google.auth.transport import requests as google_requests
+    
+    db = get_db()
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+    
+    if not GOOGLE_CLIENT_ID or GOOGLE_CLIENT_ID == "YOUR_GOOGLE_CLIENT_ID_HERE":
+        raise HTTPException(status_code=500, detail="Google Authentication is not configured on the server.")
+
+    try:
+        # Verify the token
+        id_info = google_id_token.verify_oauth2_token(id_token, google_requests.Request(), GOOGLE_CLIENT_ID)
+        
+        email = id_info['email']
+        
+        # Check if user exists
+        user = db.users.find_one({"email": email})
+        
+        if not user:
+            # Create new user if not exists (Sign Up via Google)
+            new_user = {
+                "email": email,
+                "password": "", # No password for Google users
+                "trials_left": 5,
+                "is_google_user": True
+            }
+            db.users.insert_one(new_user)
+            user = new_user
+            
+        is_sub = user.get("is_subscribed", False)
+        sub_end = user.get("subscription_end_date")
+        
+        if is_sub and sub_end and datetime.utcnow() > sub_end:
+            is_sub = False
+            db.users.update_one({"email": email}, {"$set": {"is_subscribed": False}})
+            
+        return {
+            "message": "Login successful", 
+            "email": email, 
+            "trials_left": user.get("trials_left", 0),
+            "is_subscribed": is_sub
+        }
+    except Exception as e:
+        logger.error(f"Google Sign-In failed: {e}")
+        raise HTTPException(status_code=400, detail="Invalid Google Token")
+
 @app.post("/process-video/")
 async def process_video_endpoint(
     video: UploadFile = File(None),
-    insert_file: UploadFile = File(None), # The optional secondary audio or video
+    insert_file: UploadFile = File(None),
     prompt: str = Form(...),
     user_email: str = Form(None),
     is_admin: bool = Form(False)
 ):
     db = get_db()
-    
-    # Bypass logic if frontend declares admin mode
-    # Double check dhairya_admin_unlimited just for safety
-    if prompt == "dhairya_admin_mode":
-        is_admin = True
+    if prompt == "dhairya_admin_mode": is_admin = True
         
     if not is_admin and user_email and db is not None:
         user = db.users.find_one({"email": user_email})
         if user:
             is_sub = user.get("is_subscribed", False)
             sub_end = user.get("subscription_end_date")
-            
             if is_sub and sub_end and datetime.utcnow() > sub_end:
                 is_sub = False
                 db.users.update_one({"email": user_email}, {"$set": {"is_subscribed": False}})
-                
             if not is_sub and user.get("trials_left", 0) <= 0:
                 return {"error": "Free trial limit reached. Please upgrade to continue."}
         else:
@@ -152,42 +237,33 @@ async def process_video_endpoint(
         with open(insert_file_path, "wb") as buffer:
             shutil.copyfileobj(insert_file.file, buffer)
 
-    output_path = os.path.join(OUTPUT_DIR, f"processed_{uid}.mp4")
-
-    from starlette.concurrency import run_in_threadpool
     try:
-        # Assuming 'handle_prompt' is being renamed to 'process_user_instruction'
-        # and 'video_path' in the instruction refers to 'input_path'
-        final_path = await run_in_threadpool(handle_prompt, prompt, input_path, output_path, insert_file_path)
-        logger.info(f"DEBUG: handle_prompt returned final_path='{final_path}'")
+        output_filename = f"processed_{uid}.mp4"
+        final_output_path = os.path.join(OUTPUT_DIR, output_filename)
         
-        video_url = f"/outputs/{os.path.basename(final_path)}"
-        logger.info(f"Result ready: {final_path} -> {video_url}")
-
-        response_data = {"video_url": video_url}
+        # Handle the processing synchronously
+        from starlette.concurrency import run_in_threadpool
+        final_path = await run_in_threadpool(handle_prompt, prompt, input_path, final_output_path, insert_file_path)
         
-        # Decrement trials_left for normal users (only if not subscribed)
-        if not is_admin and user_email and db is not None:
-            user_doc = db.users.find_one({"email": user_email})
-            if user_doc and not user_doc.get("is_subscribed", False):
-                db.users.update_one({"email": user_email}, {"$inc": {"trials_left": -1}})
-
-        # If the output is a text file (summary), read and return its content
-        if final_path.endswith(".txt"):
-            try:
+        if final_path and os.path.exists(final_path):
+            video_url = f"/outputs/{os.path.basename(final_path)}"
+            response_data = {"video_url": video_url}
+            
+            if final_path.endswith(".txt"):
                 with open(final_path, "r", encoding="utf-8") as f:
                     response_data["summary"] = f.read()
-            except Exception as e:
-                logger.error(f"Error reading summary file: {e}")
-                response_data["summary"] = "Error reading summary content."
 
-        return response_data
+            if not is_admin and user_email and db is not None:
+                user_doc = db.users.find_one({"email": user_email})
+                if user_doc and not user_doc.get("is_subscribed", False):
+                    db.users.update_one({"email": user_email}, {"$inc": {"trials_left": -1}})
+            
+            return response_data
+        else:
+            return {"error": "Processing failed to generate output."}
     except Exception as e:
-        error_msg = str(e)
-        logger.error(f"Processing Error: {error_msg}")
-        return {
-            "error": error_msg
-        }
+        logger.error(f"Processing failed: {e}")
+        return {"error": str(e)}
 
 from pydantic import BaseModel
 from datetime import datetime
@@ -198,7 +274,10 @@ class PlanRequest(BaseModel):
 
 @app.get("/api/config")
 async def get_config():
-    return {"razorpay_key_id": RAZORPAY_KEY_ID}
+    return {
+        "razorpay_key_id": RAZORPAY_KEY_ID,
+        "google_client_id": GOOGLE_CLIENT_ID
+    }
 
 @app.post("/api/create-order")
 async def create_order(req: PlanRequest):
@@ -336,3 +415,109 @@ async def chat_endpoint(request: ChatRequest):
     except Exception as e:
         logger.error(f"Chatbot Error: {e}")
         return {"error": "Failed to process chat request."}
+
+@app.post("/api/manual-edit")
+async def manual_edit_endpoint(
+    edits: str = Form(...),
+    video_urls: List[str] = Form([]),
+    user_email: str = Form(None),
+    video_files: List[UploadFile] = File([]),
+    music_file: UploadFile = File(None),
+    music_start: float = Form(0.0),
+    music_dur: float = Form(0.0),
+    music_volume: float = Form(1.0),
+    music_offset: float = Form(0.0),
+    task_id: str = Form(None)
+):
+    db = get_db()
+    if user_email and db is not None:
+        user = db.users.find_one({"email": user_email})
+        if user:
+            is_sub = user.get("is_subscribed", False)
+            if not is_sub and user.get("trials_left", 0) <= 0:
+                return {"error": "Free trial limit reached. Please upgrade to continue."}
+
+    try:
+        parsed_edits = json.loads(edits)
+        input_paths = []
+
+        # We need to preserve the order of clips from parsed_edits.state.clips
+        # But clips might be files or strictly URLs. 
+        # For simplicity, we match uploaded file names OR internal URLs.
+        
+        file_map = {}
+        for vf in video_files:
+            if vf.filename:
+                tmp_p = os.path.join(UPLOAD_DIR, f"multi_{uuid.uuid4()}_{vf.filename}")
+                with open(tmp_p, "wb") as buffer:
+                    buffer.write(await vf.read())
+                file_map[vf.filename] = tmp_p
+
+        # The 'clips' array in edits tells us the sequence
+        for clip in parsed_edits.get('clips', []):
+            cur_url = clip.get('url', '')
+            if cur_url.startswith('blob:'):
+                # This was a file upload, find it in file_map by filename
+                fname = clip.get('file', {}).get('name', '')
+                if fname in file_map:
+                    input_paths.append(file_map[fname])
+            else:
+                # Internal URL
+                rel_path = cur_url.replace("/", os.sep).lstrip(os.sep)
+                p = os.path.join(BASE_DIR, rel_path)
+                if not os.path.exists(p):
+                    # check output/upload dirs
+                    bn = os.path.basename(cur_url)
+                    for d in [OUTPUT_DIR, UPLOAD_DIR]:
+                        cand = os.path.join(d, bn)
+                        if os.path.exists(cand): p = cand; break
+                input_paths.append(p)
+
+        if not input_paths:
+            return {"error": "No valid video sources provided."}
+
+        # Resolve music source
+        music_path = None
+        if music_file:
+            music_filename = f"music_{uuid.uuid4()}_{music_file.filename}"
+            music_path = os.path.join(UPLOAD_DIR, music_filename)
+            with open(music_path, "wb") as buffer:
+                buffer.write(await music_file.read())
+
+        uid = str(uuid.uuid4())
+        final_output_path = os.path.join(OUTPUT_DIR, f"manual_{uid}.mp4")
+
+        parsed_edits = json.loads(edits)
+
+        # Callback bridge for ProgressManager
+        import asyncio
+        def sync_progress_callback(p):
+            if task_id:
+                # We are in a threadpool, so we need to bridge to the main event loop
+                if hasattr(loop, 'call_soon_threadsafe'):
+                    loop.call_soon_threadsafe(
+                        lambda: asyncio.create_task(progress_manager.send_progress(task_id, p))
+                    )
+
+        loop = asyncio.get_event_loop()
+        from starlette.concurrency import run_in_threadpool
+        final_path = await run_in_threadpool(
+            process_manual_edits,
+            input_paths, final_output_path, parsed_edits,
+            music_path, music_start, music_dur, music_volume, music_offset,
+            progress_callback=sync_progress_callback
+        )
+
+        if final_path and os.path.exists(final_path):
+            result_url = f"/outputs/{os.path.basename(final_path)}"
+            if user_email and db is not None:
+                user_doc = db.users.find_one({"email": user_email})
+                if user_doc and not user_doc.get("is_subscribed", False):
+                    db.users.update_one({"email": user_email}, {"$inc": {"trials_left": -1}})
+            return {"video_url": result_url}
+        else:
+            return {"error": "Manual processing failed to generate output."}
+
+    except Exception as e:
+        logger.error(f"Manual processing failed: {e}")
+        return {"error": str(e)}

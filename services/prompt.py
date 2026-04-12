@@ -2,7 +2,7 @@ from services.video import (
     remove_silence, add_captions, resize_to_vertical, resize_to_horizontal, 
     adjust_speed, trim_video, extract_audio, summarize_video, 
     generate_new_video, remove_noise, remove_watermark, insert_audio, insert_video,
-    auto_zoom_speaker
+    auto_zoom_speaker, remove_background, change_resolution
 )
 import os
 import shutil
@@ -14,7 +14,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def handle_prompt(prompt_text: str, video_path: str = None, final_output_path: str = None, insert_file_path: str = None) -> str:
+def handle_prompt(prompt_text: str, video_path: str | None = None, final_output_path: str | None = None, insert_file_path: str | None = None) -> str:
     """
     Analyzes the prompt and routes to the appropriate service.
     Now uses Gemini for robust natural language understanding of user instructions.
@@ -76,8 +76,14 @@ def handle_prompt(prompt_text: str, video_path: str = None, final_output_path: s
     operations = []
 
     # Trim Logic (Prefer AI extracted values)
-    start_trim = params.get("start_trim", 0)
-    end_trim = params.get("end_trim", 0)
+    try:
+        start_trim = float(params.get("start_trim", 0))
+    except (ValueError, TypeError):
+        start_trim = 0.0
+    try:
+        end_trim = float(params.get("end_trim", 0))
+    except (ValueError, TypeError):
+        end_trim = 0.0
     
     # Manual fallback for trim if AI missed it but keywords exist
     if start_trim == 0 and end_trim == 0 and "trim" in p:
@@ -117,7 +123,10 @@ def handle_prompt(prompt_text: str, video_path: str = None, final_output_path: s
             lang_match = re.search(r"\b(?:in|to)\s+([a-zA-Z]+)", p)
             if lang_match: target_lang = lang_match.group(1).lower()
         
-        operations.append(partial(add_captions, target_language=target_lang))
+        cap_font = params.get("caption_font")
+        cap_color = params.get("caption_color")
+        has_bg = params.get("caption_has_bg", False)
+        operations.append(partial(add_captions, target_language=target_lang, font_name=cap_font, font_color=cap_color, has_bg=has_bg))
 
     # Resizing / Zooming
     if op == "auto_zoom" or any(k in p for k in ["auto zoom", "auto-zoom", "track face", "follow face"]):
@@ -127,8 +136,22 @@ def handle_prompt(prompt_text: str, video_path: str = None, final_output_path: s
     elif op == "resize_horizontal" or any(k in p for k in ["horizontal", "landscape", "youtube"]):
         operations.append(resize_to_horizontal)
 
+    # Resolution Scaling
+    res_val = params.get("target_resolution")
+    if op == "change_resolution" or any(k in p for k in ["resolution", "upscale", "downscale"]) or re.search(r"\d+p", p):
+        if not res_val:
+            # Manual fallback extraction
+            res_match = re.search(r"(\d+p|4k|2k)", p)
+            if res_match: res_val = res_match.group(1)
+            else: res_val = "1080p" # Default
+        operations.append(partial(change_resolution, resolution=res_val))
+
     # Speed Adjustment
-    speed = params.get("speed", 1.0)
+    try:
+        speed = float(params.get("speed", 1.0))
+    except (ValueError, TypeError):
+        speed = 1.0
+    
     if speed == 1.0:
         # Manual fallback
         speed_match = re.search(r"(\d+(\.\d+)?)x", p)
@@ -138,6 +161,7 @@ def handle_prompt(prompt_text: str, video_path: str = None, final_output_path: s
     
     if speed != 1.0:
         operations.append(partial(adjust_speed, speed=speed))
+
 
     # Determine Audio/Video Insertion first
     is_insert_audio = op == "insert_audio" or any(k in p for k in ["insert audio", "overlay audio", "meme", "sound effect", "insert the audio", "add audio"])
@@ -155,7 +179,10 @@ def handle_prompt(prompt_text: str, video_path: str = None, final_output_path: s
     # Audio/Video Insertion
     if is_insert_audio or is_insert_video:
         if insert_file_path:
-            insert_time = params.get("insert_timestamp", 0.0)
+            try:
+                insert_time = float(params.get("insert_timestamp", 0.0))
+            except (ValueError, TypeError):
+                insert_time = 0.0
             
             # Manual fallback
             if insert_time == 0.0:
@@ -173,10 +200,12 @@ def handle_prompt(prompt_text: str, video_path: str = None, final_output_path: s
         else:
             logger.warning(f"DEBUG: Insertion requested but no insert_file_path provided. (is_insert_video={is_insert_video})")
 
-    # Fallback: Just copy if no operations detected
+    # Fallback: Raise error if no operations detected and it wasn't a simple copy request
     if not operations:
-        shutil.copy(video_path, final_output_path)
-        return final_output_path
+        if intent is None:
+            raise ValueError("AI Service is temporarily unavailable and no manual keywords were detected in your prompt. Please try again in 1-2 minutes.")
+        else:
+            raise ValueError("Could not understand the editing instructions in your prompt. Please be more specific (e.g., 'trim the first 5 seconds' or 'add captions').")
 
     # Execute operations sequentially
     current_input = video_path

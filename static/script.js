@@ -12,6 +12,18 @@ document.addEventListener("DOMContentLoaded", () => {
   const promptInput = document.getElementById("prompt");
   const voiceBtn = document.getElementById("voiceBtn");
   const resultVideo = document.getElementById("resultVideo");
+  
+  // Initialize manual editor when file is selected
+  if (fileInput) {
+    fileInput.addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (file && window.initManualEditor) {
+        const url = URL.createObjectURL(file);
+        window.initManualEditor(url);
+      }
+    });
+  }
+
   const root = document.documentElement;
   const themeBtn = document.getElementById("themeToggle");
   const themeIcon = document.getElementById("themeIcon");
@@ -294,40 +306,52 @@ document.addEventListener("DOMContentLoaded", () => {
         incrementUsageCount();
       }
 
+      // START PROGRESS BAR
+      showProcessingProgress(true);
+      startStochasticProgress();
+      resultVideo.innerHTML = ""; // Clear old results
+
       // If no file but there's a prompt, assume generation
       if (!file && prompt) {
-        resultVideo.innerHTML = `<p style="color: #38bdf8;">🎬 Generating video from prompt... (Wait max 4 to 5 min)</p>`;
         processBtn.disabled = true;
         processBtn.innerText = "Generating...";
 
         const formData = new FormData();
         formData.append("prompt", prompt);
         formData.append("user_email", userEmail);
-
-        // Pass admin state to backend to bypass db checks for text-to-video
         const isAdmin = localStorage.getItem("promptx_admin") === "true";
         formData.append("is_admin", isAdmin);
 
         try {
-          const response = await fetch("/process-video/", {
-            method: "POST",
-            body: formData,
-          });
+          showProcessingProgress(true);
+          startStochasticProgress();
 
+          const response = await fetch("/process-video/", {
+            method: "POST", body: formData,
+          });
           const data = await response.json();
 
           if (data.error) {
+            showProcessingProgress(false);
             resultVideo.innerHTML = `<p style="color: #ef4444;">❌ ${data.error}</p>`;
           } else {
+            finishProgress();
+            sessionStorage.setItem('last_video_url', data.video_url);
             resultVideo.innerHTML = `
               <p style="color: #22c55e;">✅ Video generated successfully!</p>
-              <video controls>
+              <video controls autoplay>
                 <source src="${data.video_url}" type="video/mp4">
               </video>
-              ${createShareButtons(data.video_url)}
+              <div style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;">
+                <a href="/editor?video=${encodeURIComponent(data.video_url)}" class="tool-btn-accent" style="text-decoration: none; padding: 10px 20px; font-size: 14px; border-radius: 8px; display: inline-flex; align-items: center; gap: 8px;">
+                  <span>✨ Open in Pro Editor</span>
+                </a>
+                ${createShareButtons(data.video_url)}
+              </div>
             `;
           }
         } catch (error) {
+          showProcessingProgress(false);
           resultVideo.innerHTML = `<p style="color: #ef4444;">❌ Error: ${error.message}</p>`;
         } finally {
           processBtn.disabled = false;
@@ -337,7 +361,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       // Otherwise, editing mode
-      resultVideo.innerHTML = `<p style="color: #38bdf8;">⏳ Processing your video... (Wait max 4 to 5 min)</p>`;
       processBtn.disabled = true;
       processBtn.innerText = "Processing...";
 
@@ -346,22 +369,23 @@ document.addEventListener("DOMContentLoaded", () => {
       if (audioFile) formData.append("insert_file", audioFile);
       formData.append("prompt", prompt);
       formData.append("user_email", userEmail);
-
-      // Pass admin state to backend to bypass db checks
       const isAdmin = localStorage.getItem("promptx_admin") === "true";
       formData.append("is_admin", isAdmin);
 
       try {
-        const response = await fetch("/process-video/", {
-          method: "POST",
-          body: formData,
-        });
+        showProcessingProgress(true);
+        startStochasticProgress();
 
+        const response = await fetch("/process-video/", {
+          method: "POST", body: formData,
+        });
         const data = await response.json();
 
         if (data.error) {
+          showProcessingProgress(false);
           resultVideo.innerHTML = `<p style="color: #ef4444;">❌ ${data.error}</p>`;
         } else if (data.summary) {
+          finishProgress();
           resultVideo.innerHTML = `
             <div class="summary-box">
               <h3>📝 Summary</h3>
@@ -369,22 +393,31 @@ document.addEventListener("DOMContentLoaded", () => {
             </div>
           `;
         } else if (data.video_url && data.video_url.endsWith(".mp3")) {
+          finishProgress();
           resultVideo.innerHTML = `
             <p style="color: #22c55e;">✅ Audio extracted successfully!</p>
-            <audio controls>
+            <audio controls autoplay>
               <source src="${data.video_url}" type="audio/mpeg">
             </audio>
           `;
         } else {
+          finishProgress();
+          sessionStorage.setItem('last_video_url', data.video_url);
           resultVideo.innerHTML = `
             <p style="color: #22c55e;">✅ Video processed successfully!</p>
-            <video controls>
+            <video controls autoplay>
               <source src="${data.video_url}" type="video/mp4">
             </video>
-            ${createShareButtons(data.video_url)}
+            <div style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;">
+              <a href="/editor?video=${encodeURIComponent(data.video_url)}" class="tool-btn-accent" style="text-decoration: none; padding: 10px 20px; font-size: 14px; border-radius: 8px; display: inline-flex; align-items: center; gap: 8px;">
+                <span>✨ Open in Pro Editor</span>
+              </a>
+              ${createShareButtons(data.video_url)}
+            </div>
           `;
         }
       } catch (error) {
+        showProcessingProgress(false);
         resultVideo.innerHTML = `<p style="color: #ef4444;">❌ Error: ${error.message}</p>`;
       } finally {
         processBtn.disabled = false;
@@ -742,6 +775,96 @@ document.addEventListener("DOMContentLoaded", () => {
     chatInput.addEventListener('keypress', (e) => {
       if (e.key === 'Enter') sendMessage();
     });
+  }
+
+  // ========== PROGRESS BAR ANIMATION LOGIC ==========
+  let progressInterval = null;
+
+  function showProcessingProgress(show) {
+    const section = document.getElementById("processingSection");
+    const resultVideo = document.getElementById("resultVideo");
+    if (!section) return;
+
+    if (show) {
+      section.style.display = "flex";
+      resultVideo.style.display = "none";
+      updateProgress(0, "Analyzing Instruction...", "Initializing AI engine and preparing assets...");
+    } else {
+      section.style.display = "none";
+      resultVideo.style.display = "block";
+    }
+  }
+
+  function updateProgress(percent, header, message) {
+    const fill = document.getElementById("progressFill");
+    const percentText = document.getElementById("progressPercent");
+    const headerText = document.getElementById("statusHeader");
+    const msgText = document.getElementById("statusMessage");
+
+    if (fill) fill.style.width = `${percent}%`;
+    if (percentText) percentText.innerText = `${Math.floor(percent)}%`;
+    if (headerText && header) headerText.innerText = header;
+    if (msgText && message) msgText.innerText = message;
+  }
+
+  function startStochasticProgress() {
+    let currentProgress = 0;
+    clearInterval(progressInterval);
+
+    progressInterval = setInterval(() => {
+      // Stochastic logic: 
+      // 0-20% is fast (upload/parsing)
+      // 20-80% is medium (AI processing)
+      // 80-99% is slow (Rendering)
+      
+      let increment = 0;
+      if (currentProgress < 20) {
+        increment = Math.random() * 2 + 0.5;
+        updateProgress(currentProgress, "Analyzing Instruction...", "Uploading assets to secure AI cluster...");
+      } else if (currentProgress < 50) {
+        increment = Math.random() * 0.5 + 0.1;
+        updateProgress(currentProgress, "AI Processing...", "interpreting visual prompts and preparing model weights...");
+      } else if (currentProgress < 85) {
+        increment = Math.random() * 0.3 + 0.05;
+        updateProgress(currentProgress, "Video Rendering...", "Applying frame-by-frame edits and post-processing...");
+      } else if (currentProgress < 98) {
+        increment = Math.random() * 0.1 + 0.01;
+        updateProgress(currentProgress, "Finalizing...", "Wrapping up video container and generating download links...");
+      } else {
+        increment = 0; // Hold at 98-99% until backend returns
+      }
+
+      currentProgress += increment;
+      if (currentProgress > 99) currentProgress = 99;
+      updateProgress(currentProgress);
+    }, 400); // Update every 400ms for smoothness
+  }
+
+  function finishProgress() {
+    clearInterval(progressInterval);
+    updateProgress(100, "Success!", "Video ready. Displaying now...");
+    
+    // Short delay for visual satisfaction before revealing video
+    setTimeout(() => {
+      showProcessingProgress(false);
+    }, 800);
+  }
+
+  function finishProgress() {
+    clearInterval(progressInterval);
+    updateProgress(100, "Success!", "Video ready. Displaying now...");
+    
+    // Short delay for visual satisfaction before revealing video
+    setTimeout(() => {
+      showProcessingProgress(false);
+    }, 800);
+  }
+
+  // Update processBtn logic to use progress bar
+  if (processBtn) {
+    // We override the original click listener or wrap it. 
+    // Since I can't easily remove anonymous listeners, 
+    // I'll replace the block in script.js entirely.
   }
 });
 

@@ -247,9 +247,94 @@ def trim_video(input_path, output_path, start_trim=0, end_trim=0):
     subprocess.run(command, check=True)
     return output_path
 
-def add_captions(input_path, output_path, target_language=None):
+def _color_to_ffmpeg(color_str: str) -> str:
     """
-    Leverages Gemini API for high-speed transcription and translation.
+    Converts standard color names or Hex (e.g., #FFFF00) to FFmpeg's &HBBGGRR format.
+    """
+    if not color_str:
+        return "&HFFFFFF" # Default White
+    
+    color_map = {
+        "yellow": "&H00FFFF",
+        "red": "&H0000FF",
+        "blue": "&HFF0000",
+        "green": "&H00FF00",
+        "black": "&H000000",
+        "white": "&HFFFFFF",
+        "purple": "&H800080",
+        "orange": "&H00A5FF",
+        "pink": "&HCB1DB1",
+        "cyan": "&HFFFF00",
+        "magenta": "&HFF00FF"
+    }
+    
+    c = color_str.lower().strip()
+    if c in color_map:
+        return color_map[c]
+    
+    # Handle Hex (#RRGGBB)
+    if c.startswith("#"):
+        c = c[1:]
+    if len(c) == 6:
+        r = c[0:2]
+        g = c[2:4]
+        b = c[4:6]
+        return f"&H{b}{g}{r}"
+    
+    return "&HFFFFFF"
+
+def _get_google_font(font_name: str) -> str:
+    """
+    Attempts to download a Google Font (.ttf) if not present locally.
+    Returns the font name to be used in FFmpeg style.
+    """
+    if not font_name or font_name.lower() == "arial":
+        return "Arial Black"
+    
+    fonts_dir = os.path.join(os.getcwd(), "fonts")
+    if not os.path.exists(fonts_dir):
+        os.makedirs(fonts_dir, exist_ok=True)
+        
+    # Standardize name for file (e.g., "Arial Black" -> "ArialBlack")
+    safe_name = "".join(x for x in font_name if x.isalnum())
+    font_file = os.path.join(fonts_dir, f"{safe_name}.ttf")
+    
+    if os.path.exists(font_file):
+        return font_name # Assume it works if file exists
+        
+    # Attempt to download from common Google Fonts GitHub patterns
+    # Pattern 1: name / Name-Regular.ttf (most common)
+    base_url = "https://github.com/google/fonts/raw/main/ofl"
+    low_name = font_name.lower().replace(" ", "")
+    cap_name = font_name.title().replace(" ", "")
+    
+    possible_urls = [
+        f"{base_url}/{low_name}/{cap_name}-Regular.ttf",
+        f"{base_url}/{low_name}/{font_name.replace(' ', '')}-Regular.ttf",
+        f"{base_url}/{low_name}/{cap_name}.ttf",
+        f"https://github.com/google/fonts/raw/main/apache/{low_name}/{cap_name}-Regular.ttf"
+    ]
+    
+    import subprocess
+    for url in possible_urls:
+        print(f"Attempting to download font: {url}")
+        try:
+            res = subprocess.run(["curl", "-L", "-s", "-f", url, "-o", font_file], check=False)
+            if res.returncode == 0 and os.path.getsize(font_file) > 1000:
+                print(f"Successfully downloaded font: {font_name}")
+                return font_name
+        except:
+            continue
+            
+    # Clean up if failed
+    if os.path.exists(font_file):
+        os.remove(font_file)
+        
+    return "Arial Black" # Fallback
+
+def add_captions(input_path, output_path, target_language=None, font_name=None, font_color=None, has_bg=False):
+    """
+    Leverages Gemini API for high-speed transcription and translation with dynamic styling and font-loading.
     """
     srt_content = generate_srt_gemini(input_path, target_language)
     
@@ -264,14 +349,23 @@ def add_captions(input_path, output_path, target_language=None):
     with open(temp_srt_path, "w", encoding="utf-8") as f:
         f.write(srt_content)
     
+    # Dynamic Styling & Font Loading
+    downloaded_name = _get_google_font(font_name)
+    fname = downloaded_name
+    fcolor = _color_to_ffmpeg(font_color)
+    
+    # BorderStyle: 1 = Outline, 3 = Opaque Box
+    b_style = 3 if has_bg else 1
+    outline_val = 1 if not has_bg else 0
+    
     style = (
-        "FontName=Arial Black,"
+        f"FontName={fname},"
         "FontSize=22,"
-        "PrimaryColour=&HFFFFFF,"
+        f"PrimaryColour={fcolor},"
         "OutlineColour=&H000000,"
         "BackColour=&H80000000,"
-        "BorderStyle=4," 
-        "Outline=0,"
+        f"BorderStyle={b_style}," 
+        f"Outline={outline_val},"
         "Shadow=0,"
         "Alignment=2,"
         "MarginV=30"
@@ -282,19 +376,13 @@ def add_captions(input_path, output_path, target_language=None):
     abs_output_path = os.path.abspath(output_path)
     
     # Transform path for FFmpeg subtitles filter on Windows
-    # FFmpeg's subtitles filter parser is notoriously picky on Windows.
-    # We need to:
-    # 1. Use absolute path.
-    # 2. Replace backslashes with forward slashes.
-    # 3. Escape the colon (e.g., C\:).
-    # 4. Wrap the entire path in single quotes.
-    abs_srt_path = os.path.abspath(temp_srt_path).replace("\\", "/")
-    abs_srt_path = abs_srt_path.replace(":", "\\:")
+    abs_srt_path = os.path.abspath(temp_srt_path).replace("\\", "/").replace(":", "\\:")
+    abs_fonts_dir = os.path.abspath("fonts").replace("\\", "/").replace(":", "\\:")
     
     command = [
         "ffmpeg", "-y", "-nostdin",
         "-i", abs_input_path,
-        "-vf", f"subtitles='{abs_srt_path}':force_style='{style}'",
+        "-vf", f"subtitles='{abs_srt_path}':fontsdir='{abs_fonts_dir}':force_style='{style}'",
         "-c:a", "copy",
         abs_output_path
     ]
@@ -521,6 +609,43 @@ def resize_to_horizontal(input_path, output_path):
         "ffmpeg", "-y", "-nostdin",
         "-i", input_path,
         "-vf", "crop=iw:iw*(9/16)",
+        "-c:a", "copy",
+        output_path
+    ]
+    
+    subprocess.run(command, check=True)
+    return output_path
+
+def change_resolution(input_path, output_path, resolution="1080p"):
+    """
+    Changes the video resolution (upscale/downscale) using FFmpeg.
+    Supported inputs: '4k', '2k', '1080p', '720p', '480p', '360p'
+    """
+    res_map = {
+        "4k": "3840:2160",
+        "2k": "2048:1080",
+        "1080p": "1920:1080",
+        "720p": "1280:720",
+        "480p": "854:480",
+        "360p": "640:360"
+    }
+    
+    # Handle pure numbers if given
+    scale_str = res_map.get(resolution.lower())
+    if not scale_str:
+        if ":" in resolution:
+            scale_str = resolution
+        elif resolution.isdigit():
+            # Assume it's height
+            scale_str = f"-2:{resolution}"
+        else:
+            # Fallback to 1080p
+            scale_str = "1920:1080"
+
+    command = [
+        "ffmpeg", "-y", "-nostdin",
+        "-i", input_path,
+        "-vf", f"scale={scale_str}",
         "-c:a", "copy",
         output_path
     ]
@@ -915,3 +1040,4 @@ def remove_watermark(input_path, output_path, location="bottom_right", watermark
             os.remove(temp_processed_path)
 
     return output_path
+

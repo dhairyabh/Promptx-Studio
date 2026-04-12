@@ -4,46 +4,155 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PROMPTX STUDIO - Login</title>
+    <title>PROMPTX STUDIO — Sign In</title>
+    <meta name="description" content="Sign in to PROMPTX STUDIO — The AI-powered video creation platform. Edit videos using natural language prompts.">
     <link rel="icon" href="/static/favicon.png?v=4" type="image/png">
-    <link rel="stylesheet" href="/static/login.css?v=1.2">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/login.css?v=4.0">
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 
 <body>
-    <div class="login-container">
-        <div class="logo">PROMPTX STUDIO</div>
-        <h2 id="formTitle">Sign In</h2>
 
-        <form id="loginForm">
-            <div class="input-group">
-                <label>Email</label>
-                <input type="email" id="loginEmail" required placeholder="Enter your email">
-            </div>
-            <div class="input-group">
-                <label>Password</label>
-                <input type="password" id="loginPassword" required placeholder="Enter your password">
-            </div>
-            <button type="submit">Sign In</button>
-            <div id="loginError" class="error-text"></div>
-        </form>
-
-        <form id="signupForm" style="display: none;">
-            <div class="input-group">
-                <label>Email</label>
-                <input type="email" id="signupEmail" required placeholder="Create an email">
-            </div>
-            <div class="input-group">
-                <label>Password</label>
-                <input type="password" id="signupPassword" required placeholder="Create a password">
-            </div>
-            <button type="submit">Sign Up</button>
-            <div id="signupError" class="error-text"></div>
-        </form>
-
-        <button id="toggleBtn" class="toggle-btn">Need an account? Sign Up</button>
+    <!-- Animated Aurora Background -->
+    <div class="bg-wrapper" aria-hidden="true">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+        <div class="orb orb-4"></div>
+        <div class="grid-overlay"></div>
     </div>
 
-    <script src="/static/login.js?v=1.0"></script>
+    <!-- Auth Container -->
+    <div class="auth-wrapper">
+        <div class="auth-card" id="authCard">
+
+            <!-- Brand -->
+            <div class="brand">
+                <div class="brand-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"
+                            stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                <span class="brand-name">PROMPTX STUDIO</span>
+            </div>
+
+            <!-- Header -->
+            <div class="auth-header">
+                <h1 id="formTitle">Welcome back</h1>
+                <p id="formSubtitle" class="subtitle">Sign in to your account to continue</p>
+            </div>
+
+            <!-- Google SSO -->
+            <div id="googleBtnContainer" class="google-btn-wrapper" aria-label="Sign in with Google"></div>
+
+            <!-- Separator -->
+            <div class="separator">
+                <span>or continue with email</span>
+            </div>
+
+            <!-- Sign In Form -->
+            <form id="loginForm" class="auth-form" autocomplete="on" novalidate>
+                <div class="input-group">
+                    <label for="loginEmail">Email address</label>
+                    <div class="input-wrapper">
+                        <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none">
+                            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"
+                                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <polyline points="22,6 12,13 2,6" stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        <input type="email" id="loginEmail" required
+                            placeholder="you@example.com"
+                            autocomplete="email"
+                            aria-describedby="loginError">
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label for="loginPassword">Password</label>
+                    <div class="input-wrapper">
+                        <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none">
+                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" stroke="currentColor" stroke-width="2"/>
+                            <path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                        <input type="password" id="loginPassword" required
+                            placeholder="Enter your password"
+                            autocomplete="current-password"
+                            aria-describedby="loginError">
+                    </div>
+                </div>
+                <button type="submit" class="btn-primary" id="loginBtn">
+                    <span>Sign In</span>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                        <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
+                <div id="loginError" class="error-text" role="alert"></div>
+            </form>
+
+            <!-- Sign Up Form -->
+            <form id="signupForm" class="auth-form" style="display: none;" autocomplete="on" novalidate>
+                <div class="input-group">
+                    <label for="signupEmail">Email address</label>
+                    <div class="input-wrapper">
+                        <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none">
+                            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"
+                                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <polyline points="22,6 12,13 2,6" stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        <input type="email" id="signupEmail" required
+                            placeholder="you@example.com"
+                            autocomplete="email"
+                            aria-describedby="signupError">
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label for="signupPassword">Password</label>
+                    <div class="input-wrapper">
+                        <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none">
+                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" stroke="currentColor" stroke-width="2"/>
+                            <path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                        <input type="password" id="signupPassword" required
+                            placeholder="Create a strong password"
+                            autocomplete="new-password"
+                            aria-describedby="signupError">
+                    </div>
+                </div>
+                <button type="submit" class="btn-primary" id="signupBtn">
+                    <span>Create Account</span>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                        <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
+                <div id="signupError" class="error-text" role="alert"></div>
+            </form>
+
+            <!-- Toggle -->
+            <div class="auth-toggle">
+                <span id="toggleText">Don't have an account?</span>
+                <button id="toggleBtn" class="toggle-btn">Sign Up</button>
+            </div>
+
+            <!-- Trial Badge -->
+            <div class="trial-badge" role="note">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+                    <polyline points="20 6 9 17 4 12" stroke="currentColor" stroke-width="2.5"
+                        stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                5 free video generations included on signup
+            </div>
+
+        </div>
+    </div>
+
+    <script src="/static/login.js?v=2.0"></script>
 </body>
 
 </html>

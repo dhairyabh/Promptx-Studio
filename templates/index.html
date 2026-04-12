@@ -4,74 +4,215 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PROMPTX STUDIO</title>
+  <title>PROMPTX STUDIO — AI-Powered Video Editing</title>
+  <meta name="description" content="Edit videos using simple text prompts. No timelines. No complexity. Just describe your edit and let AI do the rest.">
   <link rel="icon" href="/static/favicon.png?v=4" type="image/png">
-  <link rel="stylesheet" href="/static/style.css?v=5.2">
-  <link rel="stylesheet" href="/static/share.css?v=1.2">
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="/static/style.css?v=10.1">
+  <link rel="stylesheet" href="/static/share.css?v=10.1">
+  <link rel="stylesheet" href="/static/manual.css?v=1.0">
+
   <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 </head>
 
 <body>
-  <nav class="navbar">
+
+  <!-- ════════════ NAVBAR ════════════ -->
+  <nav class="navbar" role="navigation" aria-label="Main navigation">
     <div class="logo">PROMPTX STUDIO</div>
     <ul class="nav-links">
       <li><a href="#home">Home</a></li>
       <li><a href="#about">About</a></li>
-      <li><a href="#subscription">Subscription</a></li>
+      <li><a href="#subscription">Pricing</a></li>
       <li><a href="#team">Team</a></li>
       <li><a href="#feedback">Feedback</a></li>
       <li><a href="#contact">Contact</a></li>
-      <li><a href="#" id="logoutBtn" style="color: #ef4444; font-weight: 600;">Logout</a></li>
+      <li><a href="#" id="logoutBtn" style="color:#f87171;font-weight:700;">Logout</a></li>
     </ul>
-    <button id="themeToggle" class="theme-toggle" aria-label="Toggle theme" title="Toggle theme">
+    <button id="themeToggle" class="theme-toggle" aria-label="Toggle theme" title="Toggle light/dark theme">
       <span id="themeIcon">🌙</span>
     </button>
   </nav>
 
+  <!-- ════════════ HERO ════════════ -->
   <section id="home" class="section hero">
-    <h1>AI-Powered Prompt Editing Engine</h1>
-    <p>Edit videos using simple text prompt. No timelines. No complexity.</p>
-    <div class="upload-options">
-      <div class="upload-box">
-        <label for="video" class="upload-label">🎬 Main Video</label>
-        <input type="file" id="video" accept="video/*" title="Upload Main Video">
-      </div>
-      <div class="upload-box">
-        <label for="memeAudio" class="upload-label">➕ Insert Media (Optional)</label>
-        <input type="file" id="memeAudio" accept="audio/*, video/*"
-          title="Optional: Upload Secondary File (Audio/Video)">
-      </div>
-    </div>
-    <div class="input-group" style="position: relative;">
 
-      <textarea placeholder='Type "/" to see available audio/video operations, or describe your edits natively...'
-        id="prompt"></textarea>
-      <button id="voiceBtn" title="Speak Prompt">🎤</button>
-
-      <!-- Suggestion Box for Slash Commands -->
-      <div id="suggestionBox" class="suggestion-box hidden">
-        <ul id="suggestionList"></ul>
+    <!-- Hero tag -->
+    <div style="display:flex;justify-content:center;margin-bottom:18px;">
+      <div style="
+        display:inline-flex;align-items:center;gap:8px;
+        padding:6px 16px;border-radius:99px;
+        background:rgba(var(--accent-rgb),0.1);
+        border:1px solid rgba(var(--accent-rgb),0.22);
+        font-size:12.5px;font-weight:700;color:var(--accent);
+        letter-spacing:0.04em;text-transform:uppercase;
+      ">
+        <span style="width:7px;height:7px;border-radius:50%;background:var(--accent);display:inline-block;animation:logoPulse 2s ease-in-out infinite;"></span>
+        AI-Powered · No Timeline · Natural Language
       </div>
     </div>
-    <button id="processBtn">Process Video</button>
-    <div id="quotaMessage"
-      style="text-align: center; margin-top: 8px; font-size: 13px; font-weight: 600; color: var(--muted);">
-      <span id="quotaCount">5</span> Free Prompts Remaining
+
+    <h1>Edit Videos with<br>Simple Text Prompts</h1>
+    <p>Describe your edits in plain language. PROMPTX STUDIO handles the rest — silence removal, captions, cuts, and more.</p>
+
+    <!-- Feature pills -->
+    <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:28px;">
+      <span class="feature-pill">✂️ Auto-cut silence</span>
+      <span class="feature-pill">💬 AI Captions</span>
+      <span class="feature-pill">🎬 Prompt-based edits</span>
+      <span class="feature-pill">📱 Reel-ready export</span>
     </div>
-    <div id="resultVideo"></div>
+
+    <!-- Main editor card -->
+    <div class="card" id="editorCard">
+      <div class="upload-options">
+        <div class="upload-box">
+          <label for="video" class="upload-label">🎬 Main Video</label>
+          <input type="file" id="video" accept="video/*" title="Upload Main Video">
+        </div>
+        <div class="upload-box">
+          <label for="memeAudio" class="upload-label">➕ Insert Media <span style="font-weight:500;opacity:0.6;">(Optional)</span></label>
+          <input type="file" id="memeAudio" accept="audio/*, video/*" title="Upload Secondary File (Audio/Video)">
+        </div>
+      </div>
+
+      <div class="input-group">
+        <textarea
+          placeholder='Type "/" to see available commands, or describe your edit in plain English...'
+          id="prompt"
+          aria-label="Video editing prompt"
+        ></textarea>
+        <button id="voiceBtn" title="Speak your prompt" aria-label="Press to speak prompt">🎤</button>
+
+        <!-- Slash command suggestions -->
+        <div id="suggestionBox" class="suggestion-box hidden" role="listbox" aria-label="Suggestions">
+          <ul id="suggestionList"></ul>
+        </div>
+      </div>
+
+      <button id="processBtn" aria-label="Process video">
+        <span>Process Video</span>
+      </button>
+
+      <div id="quotaMessage">
+        <span id="quotaCount">5</span> Free Prompts Remaining
+      </div>
+
+      <!-- PROGRESS COMPONENT -->
+      <div id="processingSection" class="progress-container">
+        <div class="progress-info">
+          <div class="progress-label">
+            <span class="spinner" id="progressSpinner"></span>
+            <span id="statusHeader">Analyzing Instruction...</span>
+          </div>
+          <div class="progress-percentage" id="progressPercent">0%</div>
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <div class="status-message" id="statusMessage">Initializing AI engine and preparing assets...</div>
+      </div>
+
+      <div id="resultVideo"></div>
+    </div>
+
+  </section>
+
+  <!-- ════════════ MANUAL EDITOR SECTION ════════════ -->
+  <section id="manualEditorSection" class="section" style="padding: 100px 0; background: linear-gradient(to bottom, transparent, rgba(var(--accent-rgb), 0.03));">
+    <div style="display:flex;justify-content:center;margin-bottom:18px;">
+      <div style="
+        display:inline-flex;align-items:center;gap:8px;
+        padding:6px 16px;border-radius:99px;
+        background:rgba(var(--accent-rgb),0.1);
+        border:1px solid rgba(var(--accent-rgb),0.22);
+        font-size:12.5px;font-weight:700;color:var(--accent);
+        letter-spacing:0.04em;text-transform:uppercase;
+      ">
+        <span style="width:7px;height:7px;border-radius:50%;background:var(--accent);display:inline-block;animation:logoPulse 2s ease-in-out infinite;"></span>
+        Advanced Manual Editing
+      </div>
+    </div>
+    
+    <div style="max-width: 800px; margin: 0 auto; text-align: center;">
+      <h2 style="font-size: 42px; margin-bottom: 20px;">Want complete control?</h2>
+      <p style="font-size: 18px; color: var(--muted); margin-bottom: 40px; line-height: 1.6;">
+        Switch to our professional CapCut-style editor for frame-precise trimming, 
+        cinematic keyframe animations, effects, and advanced text styling.
+      </p>
+      
+      <div style="display: flex; gap: 20px; justify-content: center;">
+        <a href="/editor" class="tool-btn-accent" style="text-decoration: none; padding: 18px 40px; font-size: 18px; border-radius: 12px; display: inline-flex; align-items: center; gap: 10px; box-shadow: 0 10px 30px rgba(var(--accent-rgb), 0.3);">
+          <span>🚀 Launch Pro Editor</span>
+          <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+        </a>
+      </div>
+      
+      <div style="margin-top: 60px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 30px; opacity: 0.8;">
+          <div style="text-align: center;">
+            <div style="font-size: 24px; margin-bottom: 10px;">✂️</div>
+            <div style="font-weight: 700; font-size: 14px;">Multi-layer Timeline</div>
+          </div>
+          <div style="text-align: center;">
+            <div style="font-size: 24px; margin-bottom: 10px;">💎</div>
+            <div style="font-weight: 700; font-size: 14px;">Keyframe Animations</div>
+          </div>
+          <div style="text-align: center;">
+            <div style="font-size: 24px; margin-bottom: 10px;">🎨</div>
+            <div style="font-weight: 700; font-size: 14px;">Pro Color Grading</div>
+          </div>
+      </div>
     </div>
   </section>
 
+  <!-- ════════════ ABOUT ════════════ -->
   <section id="about" class="section">
-    <h2>About the project</h2>
-    <p>Our AI-powered video editing system allows users to edit videos using natural language prompts.
-      The system automatically removes silence, generates captions, and optimizes content for short-form platforms
-      like Instagram Reels and Youtube Shorts.
+    <h2>About the Project</h2>
+    <p>
+      PROMPTX STUDIO is an AI-powered video editing engine that lets you edit using natural language.
+      Describe what you want — trim silences, add captions, remix audio, optimize for Reels and Shorts —
+      and the AI takes care of everything. No timelines. No complexity.
     </p>
+
+    <!-- Feature cards -->
+    <div style="
+      display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+      gap:16px;margin-top:36px;text-align:left;
+    ">
+      <div class="about-feature-card">
+        <div class="about-icon">✂️</div>
+        <div class="about-title">Silence Removal</div>
+        <div class="about-desc">Automatically detects and removes awkward pauses for a polished flow.</div>
+      </div>
+      <div class="about-feature-card">
+        <div class="about-icon">💬</div>
+        <div class="about-title">AI Captions</div>
+        <div class="about-desc">Whisper-powered transcription generates accurate subtitles instantly.</div>
+      </div>
+      <div class="about-feature-card">
+        <div class="about-icon">🎯</div>
+        <div class="about-title">Prompt Editing</div>
+        <div class="about-desc">Type what you want. The AI interprets and applies your edit precisely.</div>
+      </div>
+      <div class="about-feature-card">
+        <div class="about-icon">📱</div>
+        <div class="about-title">Short-form Ready</div>
+        <div class="about-desc">Optimized exports for Instagram Reels, YouTube Shorts, and TikTok.</div>
+      </div>
+    </div>
   </section>
 
+  <!-- ════════════ PRICING ════════════ -->
   <section id="subscription" class="section">
     <h2>Subscription Plans</h2>
+    <p>Start free, scale as you grow. Every plan unlocks the full power of PROMPTX STUDIO.</p>
+
     <div class="pricing-grid">
       <div class="price-card">
         <div class="price-tier">Weekly</div>
@@ -83,6 +224,7 @@
         </ul>
         <button class="price-btn">Get Started</button>
       </div>
+
       <div class="price-card recommended">
         <div class="badge">Most Popular</div>
         <div class="price-tier">Monthly</div>
@@ -95,6 +237,7 @@
         </ul>
         <button class="price-btn">Go Pro</button>
       </div>
+
       <div class="price-card">
         <div class="price-tier">Annually</div>
         <div class="price-amount">₹4,499<span>/year</span></div>
@@ -106,6 +249,7 @@
         </ul>
         <button class="price-btn">Save Big</button>
       </div>
+
       <div class="price-card">
         <div class="price-tier">Pay Per Video</div>
         <div class="price-amount">₹9<span>/video</span></div>
@@ -120,20 +264,19 @@
     </div>
   </section>
 
+  <!-- ════════════ TEAM ════════════ -->
   <section id="team" class="section">
     <h2>Our Team</h2>
-    <p class="subtitle">
-      A multidisciplinary team building AI-powered creator tools.
-    </p>
+    <p class="subtitle">A multidisciplinary crew building the future of AI-powered creator tools.</p>
 
     <div class="team-grid">
       <div class="team-card">
         <div class="team-avatar">
-          <img src="/static/avatars/myimage.jpeg" alt="Dhairya">
+          <img src="/static/avatars/myimage.jpeg" alt="Dhairya Bhatnagar">
         </div>
         <div class="team-name">Dhairya Bhatnagar</div>
         <div class="team-role">Full Stack</div>
-        <div class="team-skills">Frontend • FastAPI • Integration</div>
+        <div class="team-skills">Frontend · FastAPI · Integration</div>
       </div>
 
       <div class="team-card">
@@ -142,62 +285,61 @@
         </div>
         <div class="team-name">Suhani</div>
         <div class="team-role">ML Engineer</div>
-        <div class="team-skills">Whisper • Data Viz • ML Pipelines</div>
+        <div class="team-skills">Whisper · Data Viz · ML Pipelines</div>
       </div>
 
       <div class="team-card">
         <div class="team-avatar">
-          <img src="/static/avatars/Khhushi.jpeg" alt="Khushi">
+          <img src="/static/avatars/Khhushi.jpeg" alt="Khushi Agarwal">
         </div>
         <div class="team-name">Khushi Agarwal</div>
-        <div class="team-role">AI/ML</div>
-        <div class="team-skills">Prompting • Model Integration</div>
+        <div class="team-role">AI / ML</div>
+        <div class="team-skills">Prompting · Model Integration</div>
       </div>
 
       <div class="team-card">
         <div class="team-avatar">
-          <img src="/static/avatars/Arunesh.jpeg" alt="Arunesh">
+          <img src="/static/avatars/Arunesh.jpeg" alt="Arunesh Jaitly">
         </div>
         <div class="team-name">Arunesh Jaitly</div>
         <div class="team-role">Data Science</div>
-        <div class="team-skills">Analytics • ML • DSA</div>
+        <div class="team-skills">Analytics · ML · DSA</div>
       </div>
     </div>
   </section>
+
+  <!-- ════════════ FEEDBACK ════════════ -->
   <section id="feedback" class="section">
     <h2>Feedback</h2>
-    <p class="subtitle">We value your feedback to improve PROMPTX STUDIO.</p>
+    <p class="subtitle">Help us improve PROMPTX STUDIO. Your opinion shapes the product.</p>
 
-    <div class="card">
-      <div class="input-group">
-        <input type="text" id="userName" placeholder="Enter your name">
+    <div class="card" style="max-width:700px;margin:24px auto 0;">
+      <div class="input-group" style="display:block;margin-bottom:12px;margin-top:0;">
+        <input type="text" id="userName" placeholder="Your name">
       </div>
-
-      <div class="input-group">
-        <input type="email" id="userEmail" placeholder="Enter your email">
+      <div class="input-group" style="display:block;margin-bottom:12px;margin-top:0;">
+        <input type="email" id="userEmail" placeholder="your@email.com">
       </div>
-
-      <div class="input-group">
-        <textarea id="userFeedback" placeholder="Write your feedback here..."></textarea>
+      <div class="input-group" style="display:block;margin-bottom:0;margin-top:0;">
+        <textarea id="userFeedback" placeholder="Share your thoughts, feature requests, or bugs..."></textarea>
       </div>
-
       <button id="submitFeedback">Submit Feedback</button>
-
       <div id="feedbackMessage"></div>
     </div>
   </section>
 
+  <!-- ════════════ FOOTER / CONTACT ════════════ -->
   <footer id="contact" class="footer-section">
     <div class="footer-container">
+
       <div class="footer-col">
         <h3 class="footer-heading">
-          <svg style="width:20px;height:20px;color:var(--accent)" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-            xmlns="http://www.w3.org/2000/svg">
+          <svg style="width:18px;height:18px;color:var(--accent)" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
               d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z">
             </path>
           </svg>
-          Get in touch with
+          Get In Touch
         </h3>
         <div class="phone-box">
           <span>+91 8791708322</span>
@@ -205,34 +347,42 @@
           <span>+91 8445543383</span>
           <span>+91 9259573356</span>
         </div>
-        <a href="mailto:codebusters.team@gmail.com" class="footer-email">codebusters.team@gmail.com</a>
+        <a href="mailto:codebusters.team@gmail.com" class="footer-email">
+          <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+          </svg>
+          codebusters.team@gmail.com
+        </a>
         <div class="social-icons">
-          <a href="#" aria-label="Facebook"><svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24">
-              <path
-                d="M9 8h-3v4h3v12h5v-12h3.642l.358-4h-4v-1.667c0-.955.192-1.333 1.115-1.333h2.885v-5h-3.808c-3.596 0-5.192 1.583-5.192 4.615v3.385z" />
-            </svg></a>
-          <a href="#" aria-label="LinkedIn"><svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24">
-              <path
-                d="M4.98 3.5c0 1.381-1.11 2.5-2.48 2.5s-2.48-1.119-2.48-2.5c0-1.38 1.11-2.5 2.48-2.5s2.48 1.12 2.48 2.5zm.02 4.5h-5v16h5v-16zm7.982 0h-4.968v16h4.969v-8.399c0-4.67 6.029-5.052 6.029 0v8.399h4.988v-10.131c0-7.88-8.922-7.593-11.018-3.714v-2.155z" />
-            </svg></a>
-          <a href="#" aria-label="Instagram"><svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24">
-              <path
-                d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
-            </svg></a>
-          <a href="#" aria-label="WhatsApp"><svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24">
-              <path
-                d="M11.42 21.815l-.018-.001h-.002c-1.636-.002-3.245-.429-4.664-1.238l-5.186 1.36 1.385-5.056a9.553 9.553 0 01-1.325-4.887l.001-.019v-.002c0-5.264 4.283-9.548 9.544-9.548 2.553 0 4.952.994 6.757 2.798a9.544 9.544 0 012.798 6.753c0 5.265-4.283 9.548-9.544 9.548zm-4.37-3.3c1.323.784 2.828 1.198 4.363 1.2h.001c4.341 0 7.874-3.533 7.876-7.876a7.868 7.868 0 00-2.308-5.57 7.87 7.87 0 00-5.572-2.307c-4.343 0-7.876 3.533-7.876 7.876a7.893 7.893 0 001.258 4.276l-.824 3.012 3.082-.811zm8.394-4.57c-.201-.1-.702-.347-.811-.387-.111-.04-.19-.06-.271.06-.08.121-.31.387-.38.468-.07.081-.141.09-.341-.01-.2-.1-.502-.185-.956-.593-.353-.318-.592-.71-.662-.83-.07-.12-.007-.184.043-.234.045-.045.101-.12.15-.181.051-.06.068-.101.101-.17.032-.07.016-.131-.008-.181-.027-.05-2.731-.62-3.138-8.118-.11-.2-.211-.19-.291-.191h-.25c-.09 0-.231.03-.351.161-.12.13-.462.451-.462 1.1s.472 1.27.538 1.36c.066.09 1.05 1.58.243 2.191-.181.141-.441.221-.711.23-.271.01-.522-.05-.731-.19-.17-.11-.2-.16-.32-.42l-.08-.15c.002-.01-.01-.03-.02-.04 2.531 6.845 6.366 3.28 6.425 2.152.008-.13.04-.33.09-.431-.22-.008-.38-.07-.48-.1z" />
-            </svg></a>
+          <a href="#" aria-label="Facebook">
+            <svg width="17" height="17" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M9 8h-3v4h3v12h5v-12h3.642l.358-4h-4v-1.667c0-.955.192-1.333 1.115-1.333h2.885v-5h-3.808c-3.596 0-5.192 1.583-5.192 4.615v3.385z"/>
+            </svg>
+          </a>
+          <a href="#" aria-label="LinkedIn">
+            <svg width="17" height="17" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M4.98 3.5c0 1.381-1.11 2.5-2.48 2.5s-2.48-1.119-2.48-2.5c0-1.38 1.11-2.5 2.48-2.5s2.48 1.12 2.48 2.5zm.02 4.5h-5v16h5v-16zm7.982 0h-4.968v16h4.969v-8.399c0-4.67 6.029-5.052 6.029 0v8.399h4.988v-10.131c0-7.88-8.922-7.593-11.018-3.714v-2.155z"/>
+            </svg>
+          </a>
+          <a href="#" aria-label="Instagram">
+            <svg width="17" height="17" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+            </svg>
+          </a>
+          <a href="#" aria-label="WhatsApp">
+            <svg width="17" height="17" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M11.42 21.815l-.018-.001h-.002c-1.636-.002-3.245-.429-4.664-1.238l-5.186 1.36 1.385-5.056a9.553 9.553 0 01-1.325-4.887v-.002c0-5.264 4.283-9.548 9.544-9.548 2.553 0 4.952.994 6.757 2.798a9.544 9.544 0 012.798 6.753c0 5.265-4.283 9.548-9.544 9.548z"/>
+            </svg>
+          </a>
         </div>
       </div>
-      <div class="footer-col" style="padding-top: 10px;">
+
+      <div class="footer-col" style="padding-top:6px;">
         <h3 class="footer-heading">
-          <svg style="width:20px;height:20px;color:var(--accent)" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-            xmlns="http://www.w3.org/2000/svg">
+          <svg style="width:18px;height:18px;color:var(--accent)" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
               d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z">
-            </path>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
           </svg>
           Locations
         </h3>
@@ -243,66 +393,65 @@
           <li>Mathura (Uttar Pradesh)</li>
         </ul>
       </div>
-      <div class="footer-col" style="padding-top: 10px;">
-        <h3 class="footer-heading">Links</h3>
+
+      <div class="footer-col" style="padding-top:6px;">
+        <h3 class="footer-heading">Quick Links</h3>
         <ul class="footer-list">
           <li><a href="#home">Home</a></li>
           <li><a href="#about">About</a></li>
-          <li><a href="#subscription">Subscription</a></li>
+          <li><a href="#subscription">Pricing</a></li>
           <li><a href="#team">Team</a></li>
           <li><a href="#contact">Contact</a></li>
         </ul>
       </div>
+
     </div>
     <div class="footer-bottom">
-      <p>Copyright &copy; 2024 PROMPTX STUDIO - Powered by <span class="highlight">PROMPTX STUDIO</span></p>
+      <p>Copyright &copy; 2024 <span class="highlight">PROMPTX STUDIO</span> — Built with ❤️ by CodeBusters</p>
     </div>
   </footer>
 
-  <!-- Chatbot Widget -->
+  <!-- ════════════ CHATBOT WIDGET ════════════ -->
   <div class="chat-widget">
-    <button id="chatToggle" class="chat-toggle" aria-label="Open Chat">
-      <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-        xmlns="http://www.w3.org/2000/svg">
+    <button id="chatToggle" class="chat-toggle" aria-label="Open Chat Assistant">
+      <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
           d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z">
         </path>
       </svg>
     </button>
-    <div id="chatWindow" class="chat-window hidden">
+    <div id="chatWindow" class="chat-window hidden" role="dialog" aria-label="PROMPTX Assistant">
       <div class="chat-header">
         <div class="chat-title">
-          <svg style="width:20px;height:20px;margin-right:8px" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg style="width:18px;height:18px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
           </svg>
           PROMPTX Assistant
         </div>
         <button id="chatClose" class="chat-close" aria-label="Close Chat">&times;</button>
       </div>
-      <div id="chatMessages" class="chat-messages">
+      <div id="chatMessages" class="chat-messages" role="log" aria-live="polite">
         <div class="message bot">
-          <div class="bubble">Hi! How can I help you with PROMPTX STUDIO today?</div>
+          <div class="bubble">👋 Hi! How can I help you with PROMPTX STUDIO today?</div>
         </div>
       </div>
       <div class="chat-input-area">
-        <input type="text" id="chatInput" placeholder="Type a message..." autocomplete="off">
-        <button id="chatSend" title="Send message">
-          <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8">
-            </path>
+        <input type="text" id="chatInput" placeholder="Ask anything..." autocomplete="off" aria-label="Chat message">
+        <button id="chatSend" title="Send message" aria-label="Send">
+          <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
           </svg>
         </button>
       </div>
     </div>
   </div>
-  </div>
 
-  <!-- Subscription Modal -->
-  <div id="subscriptionModal" class="modal-overlay" style="display: none;">
+  <!-- ════════════ SUBSCRIPTION MODAL ════════════ -->
+  <div id="subscriptionModal" class="modal-overlay" style="display: none;" role="dialog" aria-modal="true" aria-label="Subscription Plans">
     <div class="modal-content subscription-modal">
-      <button class="close-modal" id="closeSubModal">&times;</button>
+      <button class="close-modal" id="closeSubModal" aria-label="Close modal">&times;</button>
       <h2>Upgrade to PROMPTX Pro</h2>
-      <p style="color: var(--muted); margin-bottom: 24px;">Unlock the full potential of limitless AI video editing.</p>
+      <p style="color: var(--muted); margin-bottom: 8px; font-size:15px;">Unlock limitless AI video editing power.</p>
 
       <div class="pricing-grid">
         <div class="pricing-card">
@@ -315,6 +464,7 @@
           </ul>
           <button class="buy-btn" data-plan="weekly">Get Started</button>
         </div>
+
         <div class="pricing-card popular">
           <div class="badge">Most Popular</div>
           <h3>Monthly</h3>
@@ -327,6 +477,7 @@
           </ul>
           <button class="buy-btn" data-plan="monthly">Go Pro</button>
         </div>
+
         <div class="pricing-card">
           <h3>Annually</h3>
           <div class="price">₹4,499<span class="period">/year</span></div>
@@ -338,6 +489,7 @@
           </ul>
           <button class="buy-btn" data-plan="annual">Save Big</button>
         </div>
+
         <div class="pricing-card">
           <h3>Pay Per Video</h3>
           <div class="price">₹9<span class="period">/video</span></div>
@@ -353,8 +505,67 @@
     </div>
   </div>
 
-  <script src="/static/share.js?v=1.0"></script>
-  <script src="/static/script.js?v=3.0"></script>
+  <!-- Extra CSS for new components (feature pills, about cards) -->
+  <style>
+    .feature-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 99px;
+      background: var(--soft);
+      border: 1px solid var(--border2);
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted);
+      transition: all var(--transition);
+    }
+    .feature-pill:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: rgba(var(--accent-rgb), 0.07);
+      transform: translateY(-1px);
+    }
+
+    .about-feature-card {
+      background: var(--card);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius2);
+      padding: 24px 20px;
+      transition: all var(--transition);
+      position: relative;
+      overflow: hidden;
+    }
+    .about-feature-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--accent), var(--accent3));
+      opacity: 0;
+      transition: opacity var(--transition);
+    }
+    .about-feature-card:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--shadow-lg);
+      border-color: rgba(var(--accent-rgb), 0.25);
+    }
+    .about-feature-card:hover::before { opacity: 1; }
+    :root[data-theme="dark"] .about-feature-card {
+      background: rgba(255,255,255,0.04);
+      border-color: rgba(255,255,255,0.08);
+    }
+    :root[data-theme="dark"] .about-feature-card:hover {
+      background: rgba(255,255,255,0.07);
+    }
+    .about-icon { font-size: 26px; margin-bottom: 12px; }
+    .about-title { font-weight: 800; font-size: 15px; margin-bottom: 8px; }
+    .about-desc { color: var(--muted); font-size: 13.5px; line-height: 1.55; }
+  </style>
+
+  <script src="/static/share.js?v=10.1"></script>
+  <script src="/static/manual.js?v=10.2"></script>
+  <script src="/static/script.js?v=10.1"></script>
 </body>
 
 </html>

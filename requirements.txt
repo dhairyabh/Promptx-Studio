@@ -12,3 +12,4 @@ pymongo
 fal-client
 bcrypt
 razorpay
+google-auth

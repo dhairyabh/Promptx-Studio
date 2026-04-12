@@ -30,7 +30,7 @@ def generate_summary(transcript: str):
         """
 
         response = client.models.generate_content(
-            model="gemini-3-flash-preview",
+            model="gemini-2.5-flash",
             contents=prompt
         )
         return response.text.strip()
@@ -83,7 +83,7 @@ def generate_srt_gemini(media_path: str, target_language: str = None):
 
             print(f"Generating SRT using Gemini 2.5 Flash (Target: {target_language if target_language else 'Original'}). Attempt {attempt + 1}/{max_retries}...")
             response = client.models.generate_content(
-                model="gemini-3-flash-preview",
+                model="gemini-2.5-flash",
                 contents=[uploaded_file, prompt]
             )
             
@@ -250,7 +250,7 @@ def generate_summary_gemini(media_path: str, user_prompt: str = ""):
 
             print(f"Analyzing video content with Gemini 2.5 Flash. Attempt {attempt + 1}/{max_retries}...")
             response = client.models.generate_content(
-                model="gemini-3-flash-preview",
+                model="gemini-2.5-flash",
                 contents=[uploaded_file, prompt]
             )
             
@@ -500,88 +500,100 @@ def extract_intent_gemini(user_prompt: str):
     """
     Uses Gemini to extract structured intent from a natural language prompt.
     Returns a JSON-like dictionary with the detected operation and parameters.
+    Includes exponential backoff for transient AI service errors (503, 429).
     """
     api_key = get_api_key()
     if not api_key or api_key == "YOUR_GEMINI_API_KEY":
         return None
 
-    try:
-        client = genai.Client(api_key=api_key)
-        
-        system_prompt = """
-        You are an AI Video Editor intent extractor. Your job is to convert natural language instructions into structure JSON.
-        
-        Available Operations:
-        - "generate_video": User wants to create a video from text (no input file).
-        - "summarize": User wants a summary of the video.
-        - "trim": User wants to cut time from start or end.
-        - "remove_silence": User wants to remove silent parts.
-        - "remove_noise": User wants to clean audio/remove background noise.
-        - "add_captions": User wants to add subtitles.
-        - "insert_audio": User wants to overlay/insert an uploaded audio file (e.g. meme sound) at a specific time in the video.
-        - "insert_video": User wants to insert/splice an uploaded secondary video file into the main video at a specific time.
-        - "resize_vertical": User wants 9:16 aspect ratio (Shorts/Reels).
-        - "resize_horizontal": User wants 16:9 aspect ratio.
-        - "adjust_speed": User wants to change video speed.
-        - "extract_audio": User wants to save as MP3.
-        - "remove_background": User wants to remove the visual background (green screen).
-        - "remove_watermark": User wants to remove a logo or watermark from the video.
+    import time
+    max_retries = 5
+    retry_delay = 2 # Initial delay in seconds
 
-        Parameters to extract:
-        - "start_trim" (int): Seconds to remove from start. Default 0.
-        - "end_trim" (int): Seconds to remove from end. Default 0.
-        - "duration" (int): Requested duration for NEW video generation (in seconds). Default 8 if not specified.
-        - "insert_timestamp" (float): The exact absolute time (in seconds) the user wants the secondary audio or video inserted at. (e.g., 'at 5 seconds' means 5.0). Default 0.0.
-        - "target_language" (str): Language for captions/summary.
-        - "speed" (float): Speed multiplier (e.g., 1.5, 0.5). Default 1.0.
-        - "model" (str): The video model to use. Use 'wan' as the STRICT DEFAULT. Only use 'veo' if the user explicitly mentions "veo" or "google veo" or "veo model" in their request.
-        - "watermark_location" (str): 'top_left', 'top_right', 'bottom_left', 'bottom_right', 'middle_right', 'middle_left', 'center'.
-        - "watermark_type" (str): 'small_logo', 'large_banner', or 'full_width'.
-        - "watermark_width" (int): 0-100 (percentage of width).
-        - "watermark_height" (int): 0-100 (percentage of height).
-        - "watermark_strategy" (str): 'heal' (High-Quality AI, slow), 'fast' (FFmpeg Lightning, fast), or 'crop' (Zero-Blur, corner only).
-        - "background_change" (str): 'green' or other color if mentioned.
-        - "script" (str): The exact dialogue or text the user wants a character to speak (often in quotes). Translate to the target language if specified.
-        - "visual_prompt" (str): A HIGHLY DETAILED, CINEMATIC, and DESCRIPTIVE visual-only prompt for video generation. 
-          1. REMOVE all command words (e.g., "generate", "create", "video of").
-          2. EXPAND the subject into a rich scene. 
-             - Example Input: "sunset"
-             - Example visual_prompt: "A breathtaking, wide-angle cinematic shot of a vibrant sunset over a calm ocean, golden hour light reflecting on gentle waves, deep orange and purple sky, 4k, hyper-realistic."
-          3. DO NOT include people or indoor settings unless explicitly requested.
+    for attempt in range(max_retries):
+        try:
+            client = genai.Client(api_key=api_key)
+            
+            system_prompt = """
+            You are an AI Video Editor intent extractor. Your job is to convert natural language instructions into structure JSON.
+            
+            Available Operations:
+            - \"generate_video\": User wants to create a video from text (no input file).
+            - \"summarize\": User wants a summary of the video.
+            - \"trim\": User wants to cut time from start or end.
+            - \"remove_silence\": User wants to remove silent parts.
+            - \"remove_noise\": User wants to clean audio/remove background noise.
+            - \"add_captions\": User wants to add subtitles.
+            - \"insert_audio\": User wants to overlay/insert an uploaded audio file (e.g. meme sound) at a specific time in the video.
+            - \"insert_video\": User wants to insert/splice an uploaded secondary video file into the main video at a specific time.
+            - \"resize_vertical\": User wants 9:16 aspect ratio (Shorts/Reels).
+            - \"resize_horizontal\": User wants 16:9 aspect ratio.
+            - \"adjust_speed\": User wants to change video speed.
+            - \"extract_audio\": User wants to save as MP3.
+            - \"remove_background\": User wants to remove the visual background (green screen).
+            - \"remove_watermark\": User wants to remove a logo or watermark from the video.
+            - \"change_resolution\": User wants to change video resolution (e.g. 720p, 1080p, 4k).
 
-        Output Format (JSON ONLY):
-        {
-            "operation": "operation_name",
-            "params": {
-                "start_trim": 0,
-                "end_trim": 0,
-                "duration": 8,
-                "insert_timestamp": 0.0,
-                "target_language": null,
-                "speed": 1.0,
-                "model": "wan",
-                "visual_prompt": null,
-                "script": null
+            Parameters to extract:
+            - \"start_trim\" (int): Seconds to remove from start. Default 0.
+            - \"end_trim\" (int): Seconds to remove from end. Default 0.
+            - \"duration\" (int): Requested duration for NEW video generation (in seconds). Default 8 if not specified.
+            - \"insert_timestamp\" (float): The exact absolute time (in seconds) the user wants the secondary audio or video inserted at. (e.g., 'at 5 seconds' means 5.0). Default 0.0.
+            - \"target_language\" (str): Language for captions/summary.
+            - \"target_resolution\" (str): Target resolution (e.g., '720p', '1080p', '4k').
+            - \"caption_font\" (str): Specific font name for captions (e.g., 'Arial', 'Impact', 'Verdana').
+            - \"caption_color\" (str): Specific color for captions (e.g., 'Yellow', 'Red', '#FFFF00').
+            - \"caption_has_bg\" (bool): Whether the user explicitly wants a background box for captions. Default false.
+            - \"speed\" (float): Speed multiplier (e.g., 1.5, 0.5). Default 1.0.
+            - \"model\" (str): The video model to use. Use 'wan' as the STRICT DEFAULT.
+            - \"visual_prompt\" (str): A HIGHLY DETAILED, CINEMATIC, and DESCRIPTIVE visual-only prompt for video generation. 
+
+            Output Format (JSON ONLY):
+            {
+                \"operation\": \"operation_name\",
+                \"params\": {
+                    \"start_trim\": 0,
+                    \"end_trim\": 0,
+                    \"duration\": 8,
+                    \"insert_timestamp\": 0.0,
+                    \"target_language\": null,
+                    \"target_resolution\": null,
+                    \"caption_font\": null,
+                    \"caption_color\": null,
+                    \"caption_has_bg\": false,
+                    \"speed\": 1.0,
+                    \"model\": \"wan\",
+                    \"visual_prompt\": null
+                }
             }
-        }
-        
-        If multiple operations are requested, pick the primary one or return a list if possible, but for now, focus on the most prominent one.
-        If the user misspelled words (e.g., 'tirm', 'vidoe', 'captin'), detect the correct intent anyway.
-        """
+            
+            If multiple operations are requested, pick the primary one or return a list if possible, but for now, focus on the most prominent one.
+            If the user misspelled words (e.g., 'tirm', 'vidoe', 'captin'), detect the correct intent anyway.
+            """
 
-        response = client.models.generate_content(
-            model="gemini-3-flash-preview",
-            contents=f"{system_prompt}\n\nUser Instruction: {user_prompt}",
-            config={
-                'response_mime_type': 'application/json'
-            }
-        )
-        
-        import json
-        return json.loads(response.text.strip())
-    except Exception as e:
-        print(f"DEBUG: Intent extraction failed: {e}")
-        return None
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=f"{system_prompt}\n\nUser Instruction: {user_prompt}",
+                config={
+                    'response_mime_type': 'application/json'
+                }
+            )
+            
+            import json
+            return json.loads(response.text.strip())
+
+        except Exception as e:
+            error_msg = str(e)
+            is_transient = "503" in error_msg or "429" in error_msg or "500" in error_msg or "UNAVAILABLE" in error_msg or "RESOURCE_EXHAUSTED" in error_msg
+            
+            if is_transient and attempt < max_retries - 1:
+                print(f"DEBUG: Transient error during intent extraction ({error_msg}). Retrying in {retry_delay}s... (Attempt {attempt+1}/{max_retries})")
+                time.sleep(retry_delay)
+                retry_delay *= 2 # Exponential backoff
+                continue
+                
+            print(f"DEBUG: Intent extraction failed after {attempt+1} attempts: {error_msg}")
+            return None
 
 def handle_chat_query(user_message: str) -> str:
     """
@@ -597,13 +609,13 @@ def handle_chat_query(user_message: str) -> str:
         system_prompt = """
         You are the friendly and helpful Customer Support AI for PROMPTX STUDIO.
         PROMPTX STUDIO is an AI-powered Video Editing Engine that lets users edit videos using simple text prompts.
-        Features include: AI Silence Removal, AI Captions, AI Trim, AI Vertical/Horizontal Resizing, Video generation from text (Veo), and AI audio extraction.
+        Features include: AI Silence Removal, AI Captions, AI Trim, AI Vertical/Horizontal Resizing, AI Resolution Changing (e.g. upscaling to 1080p), Video generation from text (Veo), and AI audio extraction.
         Keep your answers concise, friendly, and helpful. Do not use complex markdown formatting unless necessary.
         If a user asks how to do something, tell them they can just upload their video and type what they want in the prompt box!
         """
 
         response = client.models.generate_content(
-            model="gemini-3-flash-preview",
+            model="gemini-2.5-flash",
             contents=f"{system_prompt}\n\nUser: {user_message}",
         )
         
