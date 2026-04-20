@@ -932,38 +932,70 @@ html, body {
    RESPONSIVE
 ══════════════════════════════ */
 @media (max-width: 900px) {
-  html, body { overflow: auto; }
+  html, body { overflow-y: auto; overflow-x: hidden; height: auto; }
 
   .split-layout {
     flex-direction: column;
     height: auto;
-    min-height: 100vh;
   }
 
   .hero-panel {
     flex: none;
-    min-height: 360px;
+    min-height: 500px;
     border-right: none;
     border-bottom: 1px solid rgba(139,92,246,0.12);
+    padding: 40px 0;
   }
 
   .hero-content {
-    padding: 32px 24px;
-    gap: 20px;
+    padding: 20px;
+    max-width: 100%;
+    align-items: center;
+    text-align: center;
+    gap: 16px;
   }
 
-  .hero-headline h2 { font-size: 28px; }
+  .hero-brand { justify-content: center; }
+
+  .hero-headline h2 { 
+    font-size: 28px; 
+    line-height: 1.25;
+  }
+
+  .preview-card {
+    max-width: 320px;
+    transform: scale(0.9);
+    margin: 0 auto;
+  }
+
+  .feature-pills {
+    justify-content: center;
+    transform: scale(0.9);
+  }
+
+  .social-proof {
+    transform: scale(0.9);
+  }
 
   .auth-panel {
     flex: none;
-    padding: 36px 20px;
+    padding: 40px 16px;
+    min-height: 500px;
   }
 
-  .mobile-brand { display: flex; }
+  .mobile-brand { display: flex; margin-top: -10px; }
+
+  .auth-card {
+    padding: 24px 20px;
+    margin-bottom: 20px;
+  }
 }
 
 @media (max-width: 480px) {
-  .auth-card { padding: 28px 20px; }
+  .hero-panel { min-height: 400px; }
+  .hero-headline h2 { font-size: 24px; }
+  .preview-card { transform: scale(0.85); width: 280px; }
+  .auth-card { padding: 20px 16px; }
   .auth-header h1 { font-size: 20px; }
-  .preview-img { max-height: 140px; }
+  .preview-img { max-height: 120px; }
 }

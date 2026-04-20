@@ -26,19 +26,33 @@
   <!-- ════════════ NAVBAR ════════════ -->
   <nav class="navbar" role="navigation" aria-label="Main navigation">
     <div class="logo">PROMPTX STUDIO</div>
-    <ul class="nav-links">
-      <li><a href="#home">Home</a></li>
-      <li><a href="#about">About</a></li>
-      <li><a href="#subscription">Pricing</a></li>
-      <li><a href="#team">Team</a></li>
-      <li><a href="#feedback">Feedback</a></li>
-      <li><a href="#contact">Contact</a></li>
+
+    <!-- Desktop Nav Links -->
+    <ul class="nav-links" id="navLinks">
+      <li><a href="#home" class="nav-close-link">Home</a></li>
+      <li><a href="#about" class="nav-close-link">About</a></li>
+      <li><a href="#subscription" class="nav-close-link">Pricing</a></li>
+      <li><a href="#team" class="nav-close-link">Team</a></li>
+      <li><a href="#feedback" class="nav-close-link">Feedback</a></li>
+      <li><a href="#contact" class="nav-close-link">Contact</a></li>
       <li><a href="#" id="logoutBtn" style="color:#f87171;font-weight:700;">Logout</a></li>
     </ul>
-    <button id="themeToggle" class="theme-toggle" aria-label="Toggle theme" title="Toggle light/dark theme">
-      <span id="themeIcon">🌙</span>
-    </button>
+
+    <div class="nav-right">
+      <button id="themeToggle" class="theme-toggle" aria-label="Toggle theme" title="Toggle light/dark theme">
+        <span id="themeIcon">🌙</span>
+      </button>
+      <!-- Hamburger Button (mobile only) -->
+      <button id="hamburgerBtn" class="hamburger-btn" aria-label="Open navigation menu" aria-expanded="false" aria-controls="navLinks">
+        <span class="ham-bar ham-bar-1"></span>
+        <span class="ham-bar ham-bar-2"></span>
+        <span class="ham-bar ham-bar-3"></span>
+      </button>
+    </div>
   </nav>
+
+  <!-- Mobile Nav Overlay -->
+  <div id="navOverlay" class="nav-overlay" aria-hidden="true"></div>
 
   <!-- ════════════ HERO ════════════ -->
   <section id="home" class="section hero">

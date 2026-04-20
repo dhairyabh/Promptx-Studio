@@ -777,6 +777,36 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // ========== MOBILE NAVIGATION TOGGLE ==========
+  const hamburgerBtn = document.getElementById("hamburgerBtn");
+  const navLinksList = document.getElementById("navLinks");
+  const navOverlay = document.getElementById("navOverlay");
+  const navCloseLinks = document.querySelectorAll(".nav-close-link");
+
+  if (hamburgerBtn && navLinksList && navOverlay) {
+    function toggleMobileMenu() {
+      const isOpen = navLinksList.classList.contains("active");
+      hamburgerBtn.classList.toggle("active", !isOpen);
+      navLinksList.classList.toggle("active", !isOpen);
+      navOverlay.classList.toggle("active", !isOpen);
+      
+      // Prevent scrolling when menu is open
+      document.body.style.overflow = !isOpen ? "hidden" : "";
+    }
+
+    hamburgerBtn.addEventListener("click", toggleMobileMenu);
+    navOverlay.addEventListener("click", toggleMobileMenu);
+
+    // Close menu when a link is clicked
+    navCloseLinks.forEach(link => {
+      link.addEventListener("click", () => {
+        if (navLinksList.classList.contains("active")) {
+          toggleMobileMenu();
+        }
+      });
+    });
+  }
+
   // ========== PROGRESS BAR ANIMATION LOGIC ==========
   let progressInterval = null;
 

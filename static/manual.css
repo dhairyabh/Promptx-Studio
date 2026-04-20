@@ -677,13 +677,53 @@
 @media (max-width: 900px) {
   .manual-container {
     grid-template-columns: 1fr;
+    gap: 16px;
+    padding: 0 12px;
   }
   .manual-preview-card {
-    position: static;
+    position: sticky;
+    top: 60px; /* Stick below the mobile navbar */
+    z-index: 100;
     max-height: none;
+    padding: 12px;
+    border-radius: var(--radius2);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+  }
+  .video-container {
+    max-height: 40vh;
   }
   .manual-tools-card {
     max-height: none;
     overflow-y: visible;
+    padding: 20px 16px;
+  }
+  .speed-options, .filter-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .styling-grid {
+    grid-template-columns: 1fr;
+    gap: 15px;
+  }
+}
+
+@media (max-width: 600px) {
+  .manual-preview-card {
+    padding: 8px;
+    border-radius: var(--radius);
+  }
+  .video-container {
+    aspect-ratio: 16/9;
+  }
+  .tool-btn-accent {
+    padding: 12px;
+    font-size: 14px;
+  }
+  .timeline-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+  .timeline-row span {
+    font-size: 11px;
   }
 }
