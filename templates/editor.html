@@ -421,6 +421,7 @@
       <button class="ctrl-btn" id="rewindBtn"><svg fill="currentColor" viewBox="0 0 24 24"><path d="M11 18V6l-8.5 6 8.5 6zm.5-6l8.5 6V6l-8.5 6z"/></svg></button>
       <button class="ctrl-btn play-btn" id="playBtn"><svg id="playIcon" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></button>
       <button class="ctrl-btn" id="forwardBtn"><svg fill="currentColor" viewBox="0 0 24 24"><path d="M13 6v12l8.5-6L13 6zM4 6v12l8.5-6L4 6z"/></svg></button>
+      <button class="ctrl-btn" id="splitBtn" title="Split Clip (S)" style="color:var(--accent2);"><svg fill="currentColor" viewBox="0 0 24 24" width="20"><path d="M19 8.5c0-1.66-1.34-3-3-3-.83 0-1.58.34-2.12.88L12 10.12l-1.88-3.74C9.58 5.84 8.83 5.5 8 5.5c-1.66 0-3 1.34-3 3 0 1.25.76 2.31 1.84 2.75L4 18.25V19h1.75l7-6.12 7 6.12H21v-.75l-2.84-7.01c1.08-.44 1.84-1.5 1.84-2.74zM8 9.5c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm8 0c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1z"/></svg></button>
       <div class="timecode"><span id="currTime">00:00</span> / <span id="durTime">00:00</span></div>
       <div class="seek-bar-wrap">
         <div id="seekProgress" style="width:0%"></div>
@@ -604,7 +605,7 @@ class ProEditor {
     this.tlTrack = this.tlInner; // Reference for drag calculations
 
     this.state = {
-      clips: [], // Array of { url, file, dur }
+      clips: [], // Array of { url, file, dur, srcOffset }
       speed: 1.0, ratio: 'original',
       trimS: 0, trimE: 0,
       adjusts: { brightness:100, contrast:100, saturate:100, kf:{} },
@@ -650,6 +651,12 @@ class ProEditor {
 
     document.getElementById('playBtn').onclick = () => this.video.paused ? this.video.play() : this.video.pause();
     document.getElementById('rewindBtn').onclick = () => this.seekGlobal(this.state.trimS);
+    document.getElementById('splitBtn').onclick = () => this.splitClip();
+    window.addEventListener('keydown', e => {
+      if(e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      if(e.key.toLowerCase() === 's') this.splitClip();
+      if(e.key === ' ') { e.preventDefault(); this.video.paused ? this.video.play() : this.video.pause(); }
+    });
     this.seek.oninput = () => { this.seekGlobal(parseFloat(this.seek.value)); this.applyKF(); };
 
     // Theme Toggle
@@ -868,7 +875,9 @@ class ProEditor {
     if(!this.state.clips.length) return 0;
     let t = 0;
     for(let i=0; i < this.currentClipIndex; i++) t += this.state.clips[i].dur;
-    return t + this.video.currentTime;
+    const currentClip = this.state.clips[this.currentClipIndex];
+    const offset = currentClip.srcOffset || 0;
+    return t + (this.video.currentTime - offset);
   }
 
   seekGlobal(t) {
@@ -877,13 +886,18 @@ class ProEditor {
     for(let i=0; i<this.state.clips.length; i++) {
        let c = this.state.clips[i];
        if(t < acc + c.dur || i === this.state.clips.length - 1) {
+          const relativePos = t - acc;
+          const targetTime = (c.srcOffset || 0) + relativePos;
+          
           if (this.currentClipIndex !== i) {
+             const prevUrl = this.state.clips[this.currentClipIndex]?.url;
              this.currentClipIndex = i;
-             this.video.src = c.url;
-             this.video.load();
-             // Play if we were playing? Handle correctly in caller
+             if (c.url !== prevUrl) {
+                 this.video.src = c.url;
+                 this.video.load();
+             }
           }
-          this.video.currentTime = t - acc;
+          this.video.currentTime = targetTime;
           return;
        }
        acc += c.dur;
@@ -909,7 +923,7 @@ class ProEditor {
     tempVid.src = url;
     tempVid.onloadedmetadata = () => {
        const dur = tempVid.duration;
-       this.state.clips.push({ file, url, dur });
+       this.state.clips.push({ file, url, dur, srcOffset: 0 });
        if (!isAppend) {
            this.loadUrl(url, false);
            this.onLoaded(true);
@@ -937,7 +951,7 @@ class ProEditor {
     if (this.state.clips.length === 0 && this.video.src && this.video.src.length > 5) {
         const d = this.video.duration;
         if (d && !isNaN(d) && d > 0 && d !== Infinity) {
-            this.state.clips.push({ url: this.video.src, dur: d });
+            this.state.clips.push({ url: this.video.src, dur: d, srcOffset: 0 });
             isFirstLoad = true;
         } else {
             // Keep polling until browser captures duration
@@ -995,6 +1009,14 @@ class ProEditor {
          label.innerText = `Clip ${idx+1}`;
          label.style.fontWeight = '700'; label.style.padding = '4px 8px'; label.style.color = 'var(--bg)';
          mClip.appendChild(label);
+
+         // Add delete button to media clip
+         const del = document.createElement('button');
+         del.innerHTML = '×';
+         del.style.cssText = 'position:absolute; right:4px; top:4px; border:none; background:rgba(0,0,0,0.3); color:#fff; border-radius:50%; width:18px; height:18px; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:14px; z-index:20;';
+         del.onclick = (e) => { e.stopPropagation(); this.deleteClip(idx); };
+         mClip.appendChild(del);
+
          this.mediaTrack.appendChild(mClip);
          
          acc += cliDur;
@@ -1231,27 +1253,81 @@ class ProEditor {
     
     this.applyKF();
     
-    // Auto-advance to next clip
-    if (this.video.currentTime >= this.video.duration - 0.15 && !this.video.paused) {
-       if (this.currentClipIndex < this.state.clips.length - 1) {
-          this.switching = true;
-          this.currentClipIndex++;
-          const wasPlaying = !this.video.paused;
-          this.video.src = this.state.clips[this.currentClipIndex].url;
-          this.video.load();
-          if (wasPlaying) {
-             this.video.play().then(() => this.switching = false).catch(() => this.switching = false);
-          } else {
-             this.switching = false;
-          }
-          return;
-       }
+    // Auto-advance logic
+    const currentClip = this.state.clips[this.currentClipIndex];
+    if (currentClip) {
+        const clipEndTimeInFile = (currentClip.srcOffset || 0) + currentClip.dur;
+        if (this.video.currentTime >= clipEndTimeInFile - 0.05 && !this.video.paused) {
+           if (this.currentClipIndex < this.state.clips.length - 1) {
+              this.switching = true;
+              this.currentClipIndex++;
+              const nextClip = this.state.clips[this.currentClipIndex];
+              const wasPlaying = !this.video.paused;
+              
+              const prevUrl = currentClip.url;
+              if (nextClip.url !== prevUrl) {
+                  this.video.src = nextClip.url;
+                  this.video.load();
+              }
+              this.video.currentTime = nextClip.srcOffset || 0;
+
+              if (wasPlaying) {
+                 this.video.play().then(() => this.switching = false).catch(() => this.switching = false);
+              } else {
+                 this.switching = false;
+              }
+              return;
+           } else if (gt >= this.state.trimE) {
+               this.seekGlobal(this.state.trimS);
+           }
+        }
     }
 
     if(gt >= this.state.trimE && !this.video.paused) {
       this.seekGlobal(this.state.trimS);
     }
     this.syncAudioPlayback();
+  }
+
+  splitClip() {
+    if(!this.state.clips.length) return;
+    const idx = this.currentClipIndex;
+    const clip = this.state.clips[idx];
+    const ct = this.video.currentTime;
+    const relT = ct - (clip.srcOffset || 0);
+
+    if(relT < 0.1 || relT > clip.dur - 0.1) return;
+
+    const firstPartDur = relT;
+    const secondPartDur = clip.dur - relT;
+    const secondPartOffset = (clip.srcOffset || 0) + relT;
+
+    const newClip = JSON.parse(JSON.stringify(clip));
+    newClip.dur = secondPartDur;
+    newClip.srcOffset = secondPartOffset;
+
+    clip.dur = firstPartDur;
+    this.state.clips.splice(idx + 1, 0, newClip);
+    
+    this.renderTimeline();
+    this.onTimeUpdate();
+  }
+
+  deleteClip(idx) {
+    if (this.state.clips.length <= 1) return;
+    this.state.clips.splice(idx, 1);
+    if (this.currentClipIndex >= this.state.clips.length) {
+        this.currentClipIndex = this.state.clips.length - 1;
+    }
+    // Update src if needed
+    const c = this.state.clips[this.currentClipIndex];
+    if (this.video.src !== c.url) {
+        this.video.src = c.url;
+        this.video.load();
+    }
+    this.video.currentTime = c.srcOffset || 0;
+    this.renderTimeline();
+    this.onTimeUpdate();
   }
 
   syncAudioPlayback() {

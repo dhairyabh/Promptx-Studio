@@ -122,11 +122,22 @@ def process_manual_edits(
     # Build Concat Filter
     concat_v_in = ""
     concat_a_in = ""
+    state_clips = edits.get('clips', [])
+    
     for i, _ in enumerate(input_paths):
-        # Scale each clip to match target canvas before concat
-        # We need to make sure they all have the same SAR/Res
-        sc_pad = f"scale={tw}:{th}:force_original_aspect_ratio=increase,crop={tw}:{th},setsar=1"
-        pre_chains.append(f"[{i}:v]{sc_pad}[v{i}];[{i}:a]aresample=44100[a{i}]")
+        # Get offset and duration for this specific clip segment
+        info = state_clips[i] if i < len(state_clips) else {}
+        offset = float(info.get('srcOffset', 0))
+        duration = float(info.get('dur', cl_info[i]['d']))
+        
+        # Apply trim to individual clip before scaling/concat
+        # This allows the same source file to be used for multiple segments
+        trim_v = f"trim=start={offset}:duration={duration},setpts=PTS-STARTPTS,"
+        trim_a = f"atrim=start={offset}:duration={duration},asetpts=PTS-STARTPTS,"
+        
+        # Scale and pad each clip to match target canvas
+        sc_pad = f"{trim_v}scale={tw}:{th}:force_original_aspect_ratio=increase,crop={tw}:{th},setsar=1"
+        pre_chains.append(f"[{i}:v]{sc_pad}[v{i}];[{i}:a]{trim_a}aresample=44100[a{i}]")
         concat_v_in += f"[v{i}]"
         concat_a_in += f"[a{i}]"
     

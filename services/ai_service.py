@@ -70,18 +70,18 @@ def generate_srt_gemini(media_path: str, target_language: str = None):
 
             lang_instruction = f"TRANSLATE EVERYTHING to {target_language}. Even if the original language is different, the output SRT MUST be in {target_language}." if target_language else "transcribe to the original language"
             prompt = f"""
-            Generate a professional SRT subtitle file for this media with EXTRAORDINARY SURGICAL PRECISION.
+            You are a master transcriber and editor. Your goal is to generate a professional SRT subtitle file for this media with ABSOLUTE VERBATIM ACCURACY.
             Instruction: {lang_instruction}.
-            Rules:
-            - Output ONLY the raw SRT text. No markdown tags, no notes.
-            - STRICT Timestamp Format: HH:MM:SS,mmm (e.g., 00:00:05,123 --> 00:00:10,500).
-            - WORD-BY-WORD PRECISION: Each SRT segment MUST contain a MAXIMUM of 1 to 3 words.
-            - TIMESTAMPS MUST BE SURGICALLY TIGHT: Start the timestamp at the EXACT millisecond the first word begins, and end EXACTLY when the last word in that segment ends.
-            - WORD-BY-WORD PRECISION: Each SRT segment MUST contain a MAXIMUM of 1 to 3 words.
-            - COMPLETELY IGNORE the original language if a target language is specified; PRODUCING ONLY {target_language if target_language else 'ORIGINAL LANGUAGE'} SUBTITLES.
+            
+            CORE RULES:
+            1. VERBATIM: Capture every word exactly as spoken. Do not summarize or correct the speaker.
+            2. SURGICAL TIMING: Timestamps must be perfectly synced. The start time must match the exact millisecond the first word is heard.
+            3. WORD DENSITY: Each SRT block should contain only 1 to 4 words.
+            4. FORMAT: Output only the raw SRT text. Format: HH:MM:SS,mmm --> HH:MM:SS,mmm.
+            5. ONLY SRT: No markdown tags, no commentary.
             """
 
-            print(f"Generating SRT using Gemini 2.5 Flash (Target: {target_language if target_language else 'Original'}). Attempt {attempt + 1}/{max_retries}...")
+            print(f"Generating SRT using Gemini 2.5 Flash Preview (Target: {target_language if target_language else 'Original'}). Attempt {attempt + 1}/{max_retries}...")
             response = client.models.generate_content(
                 model="gemini-2.5-flash",
                 contents=[uploaded_file, prompt]
@@ -130,10 +130,10 @@ def _adjust_timestamp(ts_str: str, offset_sec: float) -> str:
     except:
         return ts_str
 
-def _fix_srt_content(text, offset_sec: float = -0.3):
+def _fix_srt_content(text, offset_sec: float = -0.1):
     """
     Attempts to fix common SRT formatting issues and applies a timing offset.
-    Default offset is -0.3s to make captions feel more 'snappy' and aligned with speech onset.
+    Default offset is -0.1s to ensure captions feel perfectly aligned with speech onset.
     """
     import re
     
@@ -248,7 +248,7 @@ def generate_summary_gemini(media_path: str, user_prompt: str = ""):
             3. Provide only the descriptive paragraph. Do not use headings, titles, or bullet points.
             """
 
-            print(f"Analyzing video content with Gemini 2.5 Flash. Attempt {attempt + 1}/{max_retries}...")
+            print(f"Analyzing video content with Gemini 2.5 Flash Preview. Attempt {attempt + 1}/{max_retries}...")
             response = client.models.generate_content(
                 model="gemini-2.5-flash",
                 contents=[uploaded_file, prompt]
