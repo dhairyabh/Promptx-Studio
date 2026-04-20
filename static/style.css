@@ -144,7 +144,7 @@ body::before {
 .navbar {
   position: sticky;
   top: 0;
-  z-index: 999;
+  z-index: 2000;
   padding: 0 28px;
   height: 60px;
   display: flex;
@@ -227,7 +227,7 @@ body::before {
   border: none;
   cursor: pointer;
   padding: 0;
-  z-index: 1001;
+  z-index: 2002;
   transition: all var(--transition);
 }
 
@@ -254,13 +254,15 @@ body::before {
     width: 280px;
     background: var(--bg);
     border-left: 1px solid var(--border);
+    display: flex !important;
     flex-direction: column;
     padding: 80px 24px;
     gap: 12px;
     transform: translateX(100%);
     transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
-    z-index: 1000;
+    z-index: 2001;
     box-shadow: -10px 0 30px rgba(0,0,0,0.1);
+    visibility: visible;
   }
 
   /* Dark mode drawer background */
@@ -289,7 +291,7 @@ body::before {
     opacity: 0;
     visibility: hidden;
     transition: all 0.3s ease;
-    z-index: 999;
+    z-index: 1500;
   }
 
   .nav-overlay.active {
