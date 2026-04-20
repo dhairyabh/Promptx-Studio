@@ -9,150 +9,285 @@
     <link rel="icon" href="/static/favicon.png?v=4" type="image/png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/login.css?v=4.0">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Outfit:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/login.css?v=5.0">
     <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 
 <body>
 
-    <!-- Animated Aurora Background -->
-    <div class="bg-wrapper" aria-hidden="true">
-        <div class="orb orb-1"></div>
-        <div class="orb orb-2"></div>
-        <div class="orb orb-3"></div>
-        <div class="orb orb-4"></div>
-        <div class="grid-overlay"></div>
-    </div>
+    <!-- Global Noise Texture -->
+    <div class="noise-layer" aria-hidden="true"></div>
 
-    <!-- Auth Container -->
-    <div class="auth-wrapper">
-        <div class="auth-card" id="authCard">
+    <!-- ══════════════ SPLIT LAYOUT ══════════════ -->
+    <div class="split-layout">
 
-            <!-- Brand -->
-            <div class="brand">
-                <div class="brand-icon">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+        <!-- ══ LEFT PANEL — Hero Showcase ══ -->
+        <div class="hero-panel" aria-hidden="true">
+
+            <!-- Aurora BG -->
+            <div class="hero-bg">
+                <div class="aurora aurora-1"></div>
+                <div class="aurora aurora-2"></div>
+                <div class="aurora aurora-3"></div>
+                <div class="grid-mesh"></div>
+            </div>
+
+            <!-- Hero Content -->
+            <div class="hero-content">
+
+                <!-- Top Brand -->
+                <div class="hero-brand">
+                    <div class="brand-icon-lg">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"
+                                stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </div>
+                    <span class="hero-brand-name">PROMPTX STUDIO</span>
+                    <div class="badge-ai">AI</div>
+                </div>
+
+                <!-- Headline -->
+                <div class="hero-headline">
+                    <h2>Edit videos with<br>
+                        <span class="gradient-words">
+                            <span class="word word-1">natural</span>
+                            <span class="word word-2">language</span>
+                        </span>
+                    </h2>
+                    <p class="hero-sub">Type what you want. Watch it happen.</p>
+                </div>
+
+                <!-- App Preview Card -->
+                <div class="preview-card">
+                    <div class="preview-card-header">
+                        <div class="preview-dots">
+                            <span class="dot dot-red"></span>
+                            <span class="dot dot-yellow"></span>
+                            <span class="dot dot-green"></span>
+                        </div>
+                        <span class="preview-label">Promptx Editor</span>
+                    </div>
+                    <div class="preview-image-wrapper">
+                        <img src="/static/hero_preview.png" alt="Promptx Studio Editor" class="preview-img" loading="lazy">
+                        <div class="preview-overlay">
+                            <div class="prompt-demo">
+                                <div class="prompt-bar">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="#a78bfa" stroke-width="2"/><path d="M12 8v4l3 3" stroke="#a78bfa" stroke-width="2" stroke-linecap="round"/></svg>
+                                    <span class="prompt-typing" id="promptTyping"></span>
+                                    <span class="cursor-blink">|</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Floating Feature Pills -->
+                <div class="feature-pills">
+                    <div class="feature-pill pill-1">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        <span>AI-Powered Cuts</span>
+                    </div>
+                    <div class="feature-pill pill-2">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z" stroke="#34d399" stroke-width="2" stroke-linecap="round"/></svg>
+                        <span>Smart Captions</span>
+                    </div>
+                    <div class="feature-pill pill-3">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="#60a5fa" stroke-width="2"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83" stroke="#60a5fa" stroke-width="2" stroke-linecap="round"/></svg>
+                        <span>Color Grading</span>
+                    </div>
+                    <div class="feature-pill pill-4">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M9 19V6l12-3v13M9 19c0 1.1-.9 2-2 2s-2-.9-2-2 .9-2 2-2 2 .9 2 2zm12-3c0 1.1-.9 2-2 2s-2-.9-2-2 .9-2 2-2 2 .9 2 2z" stroke="#f472b6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        <span>Music Sync</span>
+                    </div>
+                </div>
+
+                <!-- Social Proof -->
+                <div class="social-proof">
+                    <div class="avatar-stack">
+                        <div class="avatar av1">A</div>
+                        <div class="avatar av2">R</div>
+                        <div class="avatar av3">S</div>
+                        <div class="avatar av4">M</div>
+                    </div>
+                    <div class="proof-text">
+                        <strong>4,200+</strong> creators already onboard
+                        <div class="stars">★★★★★</div>
+                    </div>
+                </div>
+
+            </div><!-- /hero-content -->
+
+            <!-- Floating orbs inside hero panel -->
+            <div class="hero-orb hero-orb-1"></div>
+            <div class="hero-orb hero-orb-2"></div>
+
+        </div><!-- /hero-panel -->
+
+        <!-- ══ RIGHT PANEL — Auth Form ══ -->
+        <div class="auth-panel">
+
+            <!-- Mobile-only brand -->
+            <div class="mobile-brand">
+                <div class="brand-icon-sm">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
                         <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"
                             stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
                 </div>
-                <span class="brand-name">PROMPTX STUDIO</span>
+                <span>PROMPTX STUDIO</span>
             </div>
 
-            <!-- Header -->
-            <div class="auth-header">
-                <h1 id="formTitle">Welcome back</h1>
-                <p id="formSubtitle" class="subtitle">Sign in to your account to continue</p>
-            </div>
+            <!-- Auth Card -->
+            <div class="auth-card" id="authCard">
 
-            <!-- Google SSO -->
-            <div id="googleBtnContainer" class="google-btn-wrapper" aria-label="Sign in with Google"></div>
+                <!-- Top shimmer line -->
+                <div class="card-shimmer-line"></div>
 
-            <!-- Separator -->
-            <div class="separator">
-                <span>or continue with email</span>
-            </div>
+                <!-- Header -->
+                <div class="auth-header">
+                    <div class="auth-icon-wrap">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="white" stroke-width="2" stroke-linecap="round"/>
+                            <circle cx="12" cy="7" r="4" stroke="white" stroke-width="2"/>
+                        </svg>
+                    </div>
+                    <h1 id="formTitle">Welcome back</h1>
+                    <p id="formSubtitle" class="subtitle">Sign in to your account to continue creating</p>
+                </div>
 
-            <!-- Sign In Form -->
-            <form id="loginForm" class="auth-form" autocomplete="on" novalidate>
-                <div class="input-group">
-                    <label for="loginEmail">Email address</label>
-                    <div class="input-wrapper">
-                        <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none">
-                            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"
-                                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                            <polyline points="22,6 12,13 2,6" stroke="currentColor" stroke-width="2"
+                <!-- Google SSO -->
+                <div id="googleBtnContainer" class="google-btn-wrapper" aria-label="Sign in with Google"></div>
+
+                <!-- Separator -->
+                <div class="separator">
+                    <span>or continue with email</span>
+                </div>
+
+                <!-- Sign In Form -->
+                <form id="loginForm" class="auth-form" autocomplete="on" novalidate>
+                    <div class="input-group">
+                        <label for="loginEmail">Email address</label>
+                        <div class="input-wrapper">
+                            <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none">
+                                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"
+                                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <polyline points="22,6 12,13 2,6" stroke="currentColor" stroke-width="2"
+                                    stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            <input type="email" id="loginEmail" required
+                                placeholder="you@example.com"
+                                autocomplete="email"
+                                aria-describedby="loginError">
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label for="loginPassword">Password</label>
+                        <div class="input-wrapper">
+                            <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none">
+                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" stroke="currentColor" stroke-width="2"/>
+                                <path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            </svg>
+                            <input type="password" id="loginPassword" required
+                                placeholder="Enter your password"
+                                autocomplete="current-password"
+                                aria-describedby="loginError">
+                            <button type="button" class="eye-toggle" id="togglePassLogin" tabindex="-1" aria-label="Toggle password visibility">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" class="eye-icon">
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" stroke-width="2"/>
+                                    <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn-primary" id="loginBtn">
+                        <span>Sign In</span>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                            <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" stroke-width="2"
                                 stroke-linecap="round" stroke-linejoin="round"/>
                         </svg>
-                        <input type="email" id="loginEmail" required
-                            placeholder="you@example.com"
-                            autocomplete="email"
-                            aria-describedby="loginError">
-                    </div>
-                </div>
-                <div class="input-group">
-                    <label for="loginPassword">Password</label>
-                    <div class="input-wrapper">
-                        <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none">
-                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" stroke="currentColor" stroke-width="2"/>
-                            <path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                        </svg>
-                        <input type="password" id="loginPassword" required
-                            placeholder="Enter your password"
-                            autocomplete="current-password"
-                            aria-describedby="loginError">
-                    </div>
-                </div>
-                <button type="submit" class="btn-primary" id="loginBtn">
-                    <span>Sign In</span>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                        <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" stroke-width="2"
-                            stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                </button>
-                <div id="loginError" class="error-text" role="alert"></div>
-            </form>
+                        <div class="btn-ripple"></div>
+                    </button>
+                    <div id="loginError" class="error-text" role="alert"></div>
+                </form>
 
-            <!-- Sign Up Form -->
-            <form id="signupForm" class="auth-form" style="display: none;" autocomplete="on" novalidate>
-                <div class="input-group">
-                    <label for="signupEmail">Email address</label>
-                    <div class="input-wrapper">
-                        <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none">
-                            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"
-                                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                            <polyline points="22,6 12,13 2,6" stroke="currentColor" stroke-width="2"
+                <!-- Sign Up Form -->
+                <form id="signupForm" class="auth-form" style="display: none;" autocomplete="on" novalidate>
+                    <div class="input-group">
+                        <label for="signupEmail">Email address</label>
+                        <div class="input-wrapper">
+                            <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none">
+                                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"
+                                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <polyline points="22,6 12,13 2,6" stroke="currentColor" stroke-width="2"
+                                    stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            <input type="email" id="signupEmail" required
+                                placeholder="you@example.com"
+                                autocomplete="email"
+                                aria-describedby="signupError">
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label for="signupPassword">Password</label>
+                        <div class="input-wrapper">
+                            <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none">
+                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" stroke="currentColor" stroke-width="2"/>
+                                <path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            </svg>
+                            <input type="password" id="signupPassword" required
+                                placeholder="Create a strong password"
+                                autocomplete="new-password"
+                                aria-describedby="signupError">
+                            <button type="button" class="eye-toggle" id="togglePassSignup" tabindex="-1" aria-label="Toggle password visibility">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" class="eye-icon">
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" stroke-width="2"/>
+                                    <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn-primary" id="signupBtn">
+                        <span>Create Account</span>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                            <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" stroke-width="2"
                                 stroke-linecap="round" stroke-linejoin="round"/>
                         </svg>
-                        <input type="email" id="signupEmail" required
-                            placeholder="you@example.com"
-                            autocomplete="email"
-                            aria-describedby="signupError">
-                    </div>
+                        <div class="btn-ripple"></div>
+                    </button>
+                    <div id="signupError" class="error-text" role="alert"></div>
+                </form>
+
+                <!-- Toggle -->
+                <div class="auth-toggle">
+                    <span id="toggleText">Don't have an account?</span>
+                    <button id="toggleBtn" class="toggle-btn">Sign Up</button>
                 </div>
-                <div class="input-group">
-                    <label for="signupPassword">Password</label>
-                    <div class="input-wrapper">
-                        <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none">
-                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" stroke="currentColor" stroke-width="2"/>
-                            <path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                        </svg>
-                        <input type="password" id="signupPassword" required
-                            placeholder="Create a strong password"
-                            autocomplete="new-password"
-                            aria-describedby="signupError">
-                    </div>
-                </div>
-                <button type="submit" class="btn-primary" id="signupBtn">
-                    <span>Create Account</span>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                        <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" stroke-width="2"
+
+                <!-- Trial Badge -->
+                <div class="trial-badge" role="note">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+                        <polyline points="20 6 9 17 4 12" stroke="currentColor" stroke-width="2.5"
                             stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
-                </button>
-                <div id="signupError" class="error-text" role="alert"></div>
-            </form>
+                    5 free video generations included on signup
+                </div>
 
-            <!-- Toggle -->
-            <div class="auth-toggle">
-                <span id="toggleText">Don't have an account?</span>
-                <button id="toggleBtn" class="toggle-btn">Sign Up</button>
+            </div><!-- /auth-card -->
+
+            <!-- Bottom footer -->
+            <div class="auth-footer">
+                <span>© 2025 Promptx Studio</span>
+                <a href="#">Privacy</a>
+                <a href="#">Terms</a>
             </div>
 
-            <!-- Trial Badge -->
-            <div class="trial-badge" role="note">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
-                    <polyline points="20 6 9 17 4 12" stroke="currentColor" stroke-width="2.5"
-                        stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-                5 free video generations included on signup
-            </div>
+        </div><!-- /auth-panel -->
 
-        </div>
-    </div>
+    </div><!-- /split-layout -->
 
-    <script src="/static/login.js?v=2.0"></script>
+    <script src="/static/login.js?v=3.0"></script>
 </body>
 
 </html>
