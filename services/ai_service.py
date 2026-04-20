@@ -30,7 +30,7 @@ def generate_summary(transcript: str):
         """
 
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model="gemini-3-flash-preview",
             contents=prompt
         )
         return response.text.strip()
@@ -81,9 +81,9 @@ def generate_srt_gemini(media_path: str, target_language: str = None):
             5. ONLY SRT: No markdown tags, no commentary.
             """
 
-            print(f"Generating SRT using Gemini 2.5 Flash Preview (Target: {target_language if target_language else 'Original'}). Attempt {attempt + 1}/{max_retries}...")
+            print(f"Generating SRT using Gemini 3 Flash Preview (Target: {target_language if target_language else 'Original'}). Attempt {attempt + 1}/{max_retries}...")
             response = client.models.generate_content(
-                model="gemini-2.5-flash",
+                model="gemini-3-flash-preview",
                 contents=[uploaded_file, prompt]
             )
             
@@ -104,7 +104,7 @@ def generate_srt_gemini(media_path: str, target_language: str = None):
                 continue
             
             if "429" in error_msg:
-                print(f"Quota Error (429): Gemini API limit reached for Gemini 2.5 Flash.")
+                print(f"Quota Error (429): Gemini API limit reached for Gemini 3 Flash.")
             
             return f"Error generating SRT: {error_msg}"
 
@@ -248,9 +248,9 @@ def generate_summary_gemini(media_path: str, user_prompt: str = ""):
             3. Provide only the descriptive paragraph. Do not use headings, titles, or bullet points.
             """
 
-            print(f"Analyzing video content with Gemini 2.5 Flash Preview. Attempt {attempt + 1}/{max_retries}...")
+            print(f"Analyzing video content with Gemini 3 Flash Preview. Attempt {attempt + 1}/{max_retries}...")
             response = client.models.generate_content(
-                model="gemini-2.5-flash",
+                model="gemini-3-flash-preview",
                 contents=[uploaded_file, prompt]
             )
             
@@ -572,7 +572,7 @@ def extract_intent_gemini(user_prompt: str):
             """
 
             response = client.models.generate_content(
-                model="gemini-2.5-flash",
+                model="gemini-3-flash-preview",
                 contents=f"{system_prompt}\n\nUser Instruction: {user_prompt}",
                 config={
                     'response_mime_type': 'application/json'
@@ -615,7 +615,7 @@ def handle_chat_query(user_message: str) -> str:
         """
 
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model="gemini-3-flash-preview",
             contents=f"{system_prompt}\n\nUser: {user_message}",
         )
         
