@@ -115,18 +115,6 @@ def handle_prompt(prompt_text: str, video_path: str | None = None, final_output_
         strat = params.get("watermark_strategy", "heal")
         operations.append(partial(remove_watermark, location=loc, watermark_type=w_type, custom_w=cw, custom_h=ch, strategy=strat))
 
-    # Captions/Subtitles
-    if op == "add_captions" or any(k in p for k in ["caption", "subtitle"]):
-        target_lang = params.get("target_language")
-        # Manual fallback for language
-        if not target_lang:
-            lang_match = re.search(r"\b(?:in|to)\s+([a-zA-Z]+)", p)
-            if lang_match: target_lang = lang_match.group(1).lower()
-        
-        cap_font = params.get("caption_font")
-        cap_color = params.get("caption_color")
-        has_bg = params.get("caption_has_bg", False)
-        operations.append(partial(add_captions, target_language=target_lang, font_name=cap_font, font_color=cap_color, has_bg=has_bg))
 
     # Resizing / Zooming
     if op == "auto_zoom" or any(k in p for k in ["auto zoom", "auto-zoom", "track face", "follow face"]):
@@ -145,6 +133,19 @@ def handle_prompt(prompt_text: str, video_path: str | None = None, final_output_
             if res_match: res_val = res_match.group(1)
             else: res_val = "1080p" # Default
         operations.append(partial(change_resolution, resolution=res_val))
+
+    # Captions/Subtitles (Moved after resizing/resolution for correct framing)
+    if op == "add_captions" or any(k in p for k in ["caption", "subtitle"]):
+        target_lang = params.get("target_language")
+        # Manual fallback for language
+        if not target_lang:
+            lang_match = re.search(r"\b(?:in|to)\s+([a-zA-Z]+)", p)
+            if lang_match: target_lang = lang_match.group(1).lower()
+        
+        cap_font = params.get("caption_font")
+        cap_color = params.get("caption_color")
+        has_bg = params.get("caption_has_bg", False)
+        operations.append(partial(add_captions, target_language=target_lang, font_name=cap_font, font_color=cap_color, has_bg=has_bg))
 
     # Speed Adjustment
     try:

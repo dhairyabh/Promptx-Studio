@@ -335,15 +335,36 @@ def _get_google_font(font_name: str) -> str:
 def add_captions(input_path, output_path, target_language=None, font_name=None, font_color=None, has_bg=False):
     """
     Leverages Gemini API for high-speed transcription and translation with dynamic styling and font-loading.
+    Now includes dynamic framing based on video resolution.
     """
     srt_content = generate_srt_gemini(input_path, target_language)
     
     if srt_content.startswith("Error"):
         raise Exception(f"Caption Generation Failed: {srt_content}")
 
+    # Get dimensions to calculate dynamic styling
+    probe_cmd = ["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height", "-of", "csv=p=0", input_path]
+    width, height = 1280, 720 # Fallbacks
+    try:
+        probe_res = subprocess.run(probe_cmd, capture_output=True, text=True).stdout.strip().split(',')
+        if len(probe_res) >= 2:
+            width = int(probe_res[0])
+            height = int(probe_res[1])
+    except:
+        pass
+
+    is_vertical = height > (width * 1.1) # Small 10% buffer for near-square
+    
+    # Dynamic Styling (Reduced based on feedback)
+    # FontSize: 3% of height for a more subtle look
+    f_size = max(20, int(height * 0.032))
+    
+    # MarginV: Adjusted to be lower on screen
+    # 4% for horizontal, 7% for vertical (down from 15%)
+    margin_v = int(height * 0.07) if is_vertical else int(height * 0.04)
+
     # Use a fixed, space-free filename for the temporary SRT
     temp_srt_filename = f"temp_captions_{uuid.uuid4().hex[:8]}.srt"
-    # Place SRT in current working directory (project root) to avoid path escaping issues
     temp_srt_path = temp_srt_filename
     
     with open(temp_srt_path, "w", encoding="utf-8") as f:
@@ -360,7 +381,7 @@ def add_captions(input_path, output_path, target_language=None, font_name=None, 
     
     style = (
         f"FontName={fname},"
-        "FontSize=22,"
+        f"FontSize={f_size},"
         f"PrimaryColour={fcolor},"
         "OutlineColour=&H000000,"
         "BackColour=&H80000000,"
@@ -368,7 +389,7 @@ def add_captions(input_path, output_path, target_language=None, font_name=None, 
         f"Outline={outline_val},"
         "Shadow=0,"
         "Alignment=2,"
-        "MarginV=30"
+        f"MarginV={margin_v}"
     )
     
     # Use absolute paths for -i and output
@@ -387,10 +408,8 @@ def add_captions(input_path, output_path, target_language=None, font_name=None, 
         abs_output_path
     ]
     
-    # Run FFmpeg from the current directory where the SRT file is located
     subprocess.run(command, check=True)
     
-    # Clean up temporary SRT file
     try:
         if os.path.exists(temp_srt_path):
             os.remove(temp_srt_path)
